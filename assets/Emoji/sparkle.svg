@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="spark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8e0"/>
+      <stop offset="50%" stop-color="#ffd700"/>
+      <stop offset="100%" stop-color="#daa520"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 5 L64 52 L60 48 L56 52 Z" fill="url(#spark)"/>
+  <path d="M60 115 L64 68 L60 72 L56 68 Z" fill="url(#spark)"/>
+  <path d="M5 60 L52 56 L48 60 L52 64 Z" fill="url(#spark)"/>
+  <path d="M115 60 L68 56 L72 60 L68 64 Z" fill="url(#spark)"/>
+  <path d="M22 22 L54 50 L50 52 L48 48 Z" fill="url(#spark)"/>
+  <path d="M98 22 L66 50 L70 52 L72 48 Z" fill="url(#spark)"/>
+  <path d="M22 98 L54 70 L50 68 L48 72 Z" fill="url(#spark)"/>
+  <path d="M98 98 L66 70 L70 68 L72 72 Z" fill="url(#spark)"/>
+  <circle cx="60" cy="60" r="8" fill="#fff8c0"/>
+</svg>

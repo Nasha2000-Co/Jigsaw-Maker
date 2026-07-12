@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab curve debug — tangent continuity</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      margin: 0;
+      padding: 20px;
+      background: #f4f4f4;
+      color: #111;
+    }
+    h1 { font-family: system-ui, sans-serif; font-size: 18px; margin: 0 0 4px; }
+    p { font-family: system-ui, sans-serif; font-size: 13px; color: #444; margin: 0 0 16px; max-width: 720px; line-height: 1.5; }
+    .layout { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
+    .canvas-wrap {
+      width: 400px; height: 400px;
+      background: #fff;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    svg { display: block; width: 400px; height: 400px; }
+    pre {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow: auto;
+      max-height: 90vh;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+    .fail { color: #b00020; font-weight: 700; }
+    .pass { color: #0a7a2f; font-weight: 700; }
+    .anchor { fill: #b00020; }
+    .cp { fill: #0066cc; }
+    .cp-line { stroke: #0066cc; stroke-width: 0.8; stroke-dasharray: 3 2; opacity: 0.7; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Single tab curve — debug view</h1>
+  <p>
+    Black path = one horizontal edge with G1-smooth Ω tab (same formulas as <code>index.html</code>).
+    Red dots = anchor points. Blue dots = bezier control points.
+  </p>
+  <div class="layout">
+    <div class="canvas-wrap">
+      <svg id="svg" width="400" height="400" viewBox="0 0 400 400"></svg>
+    </div>
+    <pre id="out"></pre>
+  </div>
+  <script>
+  const NECK_HALF = 0.125;
+  const BULB_HALF = 0.185;
+  const DEPTH_RATIO = 0.26;
+
+  const fmt = (n) => Number(n).toFixed(2);
+  function pt(x, y) { return { x, y }; }
+
+  function buildOmegaTabCurves(L, h) {
+    const cx = L * 0.5;
+    const neck = L * NECK_HALF;
+    const bulb = L * BULB_HALF;
+    const arm = neck * 0.68;
+    const k = 0.88;
+
+    const xL = cx - neck;
+    const xR = cx + neck;
+    const flankL = { x: cx - bulb * 0.78, y: h * 0.50 };
+    const peak = { x: cx, y: h };
+    const flankR = { x: cx + bulb * 0.78, y: h * 0.50 };
+
+    const s1cp2 = { x: cx - bulb * 0.96, y: h * 0.12 };
+    const s2cp2 = { x: cx - bulb * 0.10, y: h * 0.96 };
+    const s3cp1 = { x: cx + bulb * 0.10, y: h * 0.96 };
+    const mirrorX = (p, anchor = cx) => ({ x: anchor + (anchor - p.x), y: p.y });
+    const s2cp1 = {
+      x: flankL.x + (flankL.x - s1cp2.x) * k,
+      y: flankL.y + (flankL.y - s1cp2.y) * k,
+    };
+    const s2cp1m = mirrorX(s2cp1);
+    const s3cp2 = {
+      x: flankR.x + (flankR.x - s2cp1m.x) * k,
+      y: flankR.y + (flankR.y - s2cp1m.y) * k,
+    };
+
+    return {
+      neckL: { x: xL, y: 0 },
+      neckR: { x: xR, y: 0 },
+      segments: [
+        { cp1: { x: xL - arm, y: 0 }, cp2: s1cp2, p: flankL },
+        { cp1: s2cp1, cp2: s2cp2, p: peak },
+        { cp1: s3cp1, cp2: s3cp2, p: flankR },
+        { cp1: mirrorX(s1cp2), cp2: { x: xR + arm, y: 0 }, p: { x: xR, y: 0 } },
+      ],
+    };
+  }
+
+  function buildTabPath(x0, y, L, sign, depth) {
+    const h = depth * sign;
+    const tab = buildOmegaTabCurves(L, h);
+    const segments = [];
+    const anchors = [];
+    const controls = [];
+
+    const A0 = pt(x0, y);
+    const A1 = pt(x0 + tab.neckL.x, y + tab.neckL.y);
+
+    segments.push({ type: 'M', p: A0 });
+    segments.push({ type: 'L', p: A1 });
+    anchors.push({ id: 'A0', p: A0, note: 'edge start' });
+    anchors.push({ id: 'A1', p: A1, note: 'straight → curve (LEFT neck)' });
+
+    let idx = 2;
+    tab.segments.forEach((seg, i) => {
+      const cp1 = pt(x0 + seg.cp1.x, y + seg.cp1.y);
+      const cp2 = pt(x0 + seg.cp2.x, y + seg.cp2.y);
+      const p = pt(x0 + seg.p.x, y + seg.p.y);
+      segments.push({ type: 'C', cp1, cp2, p });
+      controls.push({ from: `A${idx - 1}`, cp: cp1, role: `cp1 of curve${i + 1}` });
+      controls.push({ from: `A${idx}`, cp: cp2, role: `cp2 of curve${i + 1}` });
+      anchors.push({ id: `A${idx}`, p, note: `end of curve${i + 1}` });
+      idx++;
+    });
+
+    const Aend = pt(x0 + L, y);
+    segments.push({ type: 'L', p: Aend });
+    anchors.push({ id: 'Aend', p: Aend, note: 'edge end' });
+
+    return { segments, anchors, controls, meta: { x0, y, L, h, depth } };
+  }
+
+  function toSvgPath(segments) {
+    return segments.map((s) => {
+      if (s.type === 'M') return `M ${fmt(s.p.x)} ${fmt(s.p.y)}`;
+      if (s.type === 'L') return `L ${fmt(s.p.x)} ${fmt(s.p.y)}`;
+      if (s.type === 'C') {
+        return `C ${fmt(s.cp1.x)} ${fmt(s.cp1.y)} ${fmt(s.cp2.x)} ${fmt(s.cp2.y)} ${fmt(s.p.x)} ${fmt(s.p.y)}`;
+      }
+      return '';
+    }).join('\n');
+  }
+
+  function vsub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+  function cross2(a, b) { return a.x * b.y - a.y * b.x; }
+  function dot2(a, b) { return a.x * b.x + a.y * b.y; }
+  function vnorm(v) {
+    const l = Math.hypot(v.x, v.y);
+    return l < 1e-9 ? { x: 0, y: 0 } : { x: v.x / l, y: v.y / l };
+  }
+  function angleDeg(a, b) {
+    const na = vnorm(a), nb = vnorm(b);
+    const c = Math.max(-1, Math.min(1, dot2(na, nb)));
+    return Math.acos(c) * 180 / Math.PI;
+  }
+
+  function analyzeContinuity(segments, anchors) {
+    const checks = [];
+    const byId = Object.fromEntries(anchors.map((a) => [a.id, a.p]));
+
+    function addCheck(id, incoming, outgoing, detail) {
+      const cr = cross2(incoming, outgoing);
+      const ang = angleDeg(incoming, outgoing);
+      const g1 = Math.abs(cr) < 1e-4 || ang < 0.6;
+      checks.push({ anchor: id, g1, cross: cr, angle: ang, detail });
+    }
+
+    const curves = segments.filter((s) => s.type === 'C');
+    const lines = segments.filter((s) => s.type === 'L');
+
+    addCheck('A1',
+      vsub(byId.A1, byId.A0),
+      vsub(curves[0].cp1, byId.A1),
+      'horizontal L → C₁');
+
+    for (let i = 0; i < curves.length - 1; i++) {
+      addCheck(`A${i + 2}`,
+        vsub(curves[i].p, curves[i].cp2),
+        vsub(curves[i + 1].cp1, curves[i].p),
+        `C${i + 1} → C${i + 2}`);
+    }
+
+    const last = curves[curves.length - 1];
+    addCheck('Aend',
+      vsub(last.p, last.cp2),
+      vsub(byId.Aend, last.p),
+      'C₄ → L');
+
+    return checks;
+  }
+
+  function fitViewBox(points, pad = 24) {
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const minX = Math.min(...xs) - pad;
+    const minY = Math.min(...ys) - pad;
+    const maxX = Math.max(...xs) + pad;
+    const maxY = Math.max(...ys) + pad;
+    return `${fmt(minX)} ${fmt(minY)} ${fmt(maxX - minX)} ${fmt(maxY - minY)}`;
+  }
+
+  function render() {
+    const L = 200;
+    const depth = L * DEPTH_RATIO;
+    const sign = 1;
+    const y = 200;
+    const x0 = 60;
+    const straight = 40;
+
+    const { segments, anchors, controls } = buildTabPath(x0 - straight, y, L + straight * 2, sign, depth);
+    const pathD = toSvgPath(segments);
+    const checks = analyzeContinuity(segments, anchors);
+
+    const allPts = [...anchors.map((a) => a.p), ...controls.map((c) => c.cp)];
+    const vb = fitViewBox(allPts, 30);
+
+    const svg = document.getElementById('svg');
+    svg.setAttribute('viewBox', vb);
+
+    let html = '';
+    html += `<path d="${pathD.replace(/\n/g, ' ')}" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+    controls.forEach((c) => {
+      const a = anchors.find((x) => x.id === c.from).p;
+      html += `<line class="cp-line" x1="${fmt(a.x)}" y1="${fmt(a.y)}" x2="${fmt(c.cp.x)}" y2="${fmt(c.cp.y)}"/>`;
+      html += `<circle class="cp" cx="${fmt(c.cp.x)}" cy="${fmt(c.cp.y)}" r="3"/>`;
+    });
+
+    anchors.forEach((a) => {
+      html += `<circle class="anchor" cx="${fmt(a.p.x)}" cy="${fmt(a.p.y)}" r="4"/>`;
+      html += `<text x="${fmt(a.p.x + 4)}" y="${fmt(a.p.y - 6)}" font-size="9" fill="#b00020" font-family="monospace">${a.id}</text>`;
+    });
+
+    svg.innerHTML = html;
+
+    let text = 'G1 TANGENT CONTINUITY CHECKS\n────────────────────────────\n\n';
+    checks.forEach((c) => {
+      const status = c.g1 ? 'PASS' : 'FAIL';
+      text += `[${status}] ${c.anchor}: ${c.detail}\n`;
+      text += `  cross: ${fmt(c.cross)}   angle: ${fmt(c.angle)}°\n\n`;
+    });
+    const fails = checks.filter((c) => !c.g1);
+    text += `SUMMARY: ${fails.length} of ${checks.length} joints fail G1.\n`;
+
+    document.getElementById('out').innerHTML = text
+      .replace(/\[FAIL\]/g, '<span class="fail">[FAIL]</span>')
+      .replace(/\[PASS\]/g, '<span class="pass">[PASS]</span>');
+  }
+
+  render();
+  </script>
+</body>
+</html>

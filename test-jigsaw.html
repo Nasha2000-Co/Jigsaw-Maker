@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jigsaw Tab Test — 3 pieces in a row</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #2a2a2a; padding: 24px; text-align: center; color: #eee; }
+    h1 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+    p { font-size: 12px; color: #aaa; margin-bottom: 16px; max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+    .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+    button { padding: 8px 16px; border-radius: 999px; border: 1.5px solid #666; background: #444; color: #eee; cursor: pointer; font-size: 13px; }
+    button:hover { background: #666; }
+    canvas { border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+    .note { font-size: 11px; color: #888; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Jigsaw Tab Test — single row</h1>
+  <p>Gray background exposes gaps. Pieces must be flush (no band). Thin white stroke on shared paths only. Tabs use neck+bulb bezier formula.</p>
+  <div class="controls">
+    <button onclick="render(2)">2 pieces</button>
+    <button onclick="render(3)">3 pieces</button>
+    <button onclick="render(3, true)">3 — regenerate</button>
+  </div>
+  <canvas id="c"></canvas>
+  <p class="note">If you see thick gray bands between pieces, alignment is wrong. Only thin white lines should separate colors.</p>
+  <script>
+  const JigsawGen = (() => {
+    const NECK_HALF = 0.125;
+    const BULB_HALF = 0.185;
+    const DEPTH_RATIO = 0.26;
+    const CORNER_RATIO = 0.08;
+    const PIECE_STROKE = { color: 'rgba(255, 255, 255, 0.98)', width: 2 };
+
+    function randomSign() { return Math.random() < 0.5 ? 1 : -1; }
+
+    function generateSharedEdgeMap(rows, cols, cellW, cellH) {
+      const depth = Math.min(cellW, cellH) * DEPTH_RATIO;
+      const hEdges = Array.from({ length: rows - 1 }, () =>
+        Array.from({ length: cols }, () => ({ sign: randomSign(), depth }))
+      );
+      const vEdges = Array.from({ length: rows }, () =>
+        Array.from({ length: cols - 1 }, () => ({ sign: randomSign(), depth }))
+      );
+      return { hEdges, vEdges, depth };
+    }
+
+    function getPieceEdgeRefs(row, col, rows, cols, hEdges, vEdges) {
+      return {
+        top:    row === 0 ? 0 : -hEdges[row - 1][col].sign,
+        bottom: row === rows - 1 ? 0 : hEdges[row][col].sign,
+        left:   col === 0 ? 0 : -vEdges[row][col - 1].sign,
+        right:  col === cols - 1 ? 0 : vEdges[row][col].sign,
+      };
+    }
+
+    function getPiecePadding(row, col, rows, cols, hEdges, vEdges, depth) {
+      return {
+        padTop:    row > 0 && hEdges[row - 1][col].sign < 0 ? depth : 0,
+        padBottom: row < rows - 1 && hEdges[row][col].sign > 0 ? depth : 0,
+        padLeft:   col > 0 && vEdges[row][col - 1].sign < 0 ? depth : 0,
+        padRight:  col < cols - 1 && vEdges[row][col].sign > 0 ? depth : 0,
+      };
+    }
+
+    function buildOmegaTabCurves(L, h) {
+      const cx = L * 0.5;
+      const neck = L * NECK_HALF;
+      const bulb = L * BULB_HALF;
+      const arm = neck * 0.75;
+      const k = 0.9;
+      const K = 0.5522847498;
+
+      const xL = cx - neck;
+      const xR = cx + neck;
+      const flankL = { x: cx - bulb * 0.82, y: h * 0.46 };
+      const peak = { x: cx, y: h };
+      const flankR = { x: cx + bulb * 0.82, y: h * 0.46 };
+
+      const s1cp2 = { x: cx - bulb * 0.98, y: h * 0.10 };
+      const s2cp2 = { x: cx - bulb * K * 0.22, y: h * 0.98 };
+      const s3cp1 = { x: cx + bulb * K * 0.22, y: h * 0.98 };
+      const mirrorX = (p, anchor = cx) => ({ x: anchor + (anchor - p.x), y: p.y });
+      const s2cp1 = {
+        x: flankL.x + (flankL.x - s1cp2.x) * k,
+        y: flankL.y + (flankL.y - s1cp2.y) * k,
+      };
+      const s2cp1m = mirrorX(s2cp1);
+      const s3cp2 = {
+        x: flankR.x + (flankR.x - s2cp1m.x) * k,
+        y: flankR.y + (flankR.y - s2cp1m.y) * k,
+      };
+
+      return {
+        neckL: { x: xL, y: 0 },
+        neckR: { x: xR, y: 0 },
+        segments: [
+          { cp1: { x: xL - arm, y: 0 }, cp2: s1cp2, p: flankL },
+          { cp1: s2cp1, cp2: s2cp2, p: peak },
+          { cp1: s3cp1, cp2: s3cp2, p: flankR },
+          { cp1: mirrorX(s1cp2), cp2: { x: xR + arm, y: 0 }, p: { x: xR, y: 0 } },
+        ],
+      };
+    }
+
+    function mapTabPointH(p, x0, y) {
+      return { x: x0 + p.x, y: y + p.y };
+    }
+
+    function mapTabPointHRev(p, x1, y) {
+      return { x: x1 - p.x, y: y + p.y };
+    }
+
+    function mapTabPointV(p, x, y0) {
+      return { x: x + p.y, y: y0 + p.x };
+    }
+
+    function mapTabPointVRev(p, x, y1) {
+      return { x: x + p.y, y: y1 - p.x };
+    }
+
+    function drawOmegaTab(ctx, map, tab) {
+      const neck = map(tab.neckL);
+      ctx.lineTo(neck.x, neck.y);
+      tab.segments.forEach((seg) => {
+        const cp1 = map(seg.cp1);
+        const cp2 = map(seg.cp2);
+        const p = map(seg.p);
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p.x, p.y);
+      });
+    }
+
+    function connectorLR(ctx, x0, y, L, sign, depth, trimEnd = 0) {
+      if (!sign) { ctx.lineTo(x0 + L - trimEnd, y); return; }
+      const h = depth * sign;
+      drawOmegaTab(ctx, (p) => mapTabPointH(p, x0, y), buildOmegaTabCurves(L, h));
+      ctx.lineTo(x0 + L, y);
+    }
+
+    function connectorRL(ctx, x1, y, L, sign, depth, trimEnd = 0) {
+      if (!sign) { ctx.lineTo(x1 - L + trimEnd, y); return; }
+      const h = depth * sign;
+      const tab = buildOmegaTabCurves(L, h);
+      const neck = mapTabPointHRev(tab.neckR, x1, y);
+      ctx.lineTo(neck.x, neck.y);
+      [...tab.segments].reverse().forEach((seg) => {
+        const cp1 = mapTabPointHRev(seg.cp2, x1, y);
+        const cp2 = mapTabPointHRev(seg.cp1, x1, y);
+        const p = mapTabPointHRev(seg.p, x1, y);
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p.x, p.y);
+      });
+      ctx.lineTo(x1 - L, y);
+    }
+
+    function connectorTB(ctx, x, y0, L, sign, depth, trimEnd = 0) {
+      if (!sign) { ctx.lineTo(x, y0 + L - trimEnd); return; }
+      const h = depth * sign;
+      drawOmegaTab(ctx, (p) => mapTabPointV(p, x, y0), buildOmegaTabCurves(L, h));
+      ctx.lineTo(x, y0 + L);
+    }
+
+    function connectorBT(ctx, x, y1, L, sign, depth, trimEnd = 0) {
+      if (!sign) { ctx.lineTo(x, y1 - L + trimEnd); return; }
+      const h = depth * sign;
+      const tab = buildOmegaTabCurves(L, h);
+      const neck = mapTabPointVRev(tab.neckR, x, y1);
+      ctx.lineTo(neck.x, neck.y);
+      [...tab.segments].reverse().forEach((seg) => {
+        const cp1 = mapTabPointVRev(seg.cp2, x, y1);
+        const cp2 = mapTabPointVRev(seg.cp1, x, y1);
+        const p = mapTabPointVRev(seg.p, x, y1);
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p.x, p.y);
+      });
+      ctx.lineTo(x, y1 - L);
+    }
+
+    function buildPiecePath(ctx, ox, oy, w, h, refs, depth) {
+      const cr = Math.min(w, h) * CORNER_RATIO;
+      const x1 = ox + w;
+      const y1 = oy + h;
+
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+
+      connectorLR(ctx, ox, oy, w, refs.top, depth, refs.top ? 0 : cr);
+      if (!refs.top) ctx.arcTo(x1, oy, x1, y1, cr);
+
+      connectorTB(ctx, x1, oy, h, refs.right, depth, refs.right ? 0 : cr);
+      if (!refs.right) ctx.arcTo(x1, y1, ox, y1, cr);
+
+      connectorRL(ctx, x1, y1, w, refs.bottom, depth, refs.bottom ? 0 : cr);
+      if (!refs.bottom) ctx.arcTo(ox, y1, ox, oy, cr);
+
+      connectorBT(ctx, ox, y1, h, refs.left, depth, refs.left ? 0 : cr);
+      if (!refs.left) ctx.arcTo(ox, oy, x1, oy, cr);
+
+      ctx.closePath();
+    }
+
+    function strokePiecePath(ctx, ox, oy, w, h, refs, depth) {
+      buildPiecePath(ctx, ox, oy, w, h, refs, depth);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      ctx.shadowBlur = 2;
+      ctx.shadowOffsetY = 1;
+      ctx.strokeStyle = PIECE_STROKE.color;
+      ctx.lineWidth = PIECE_STROKE.width;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPieceFill(ctx, boardX, boardY, row, col, rows, cols, cellW, cellH, hEdges, vEdges, depth, fill) {
+      const refs = getPieceEdgeRefs(row, col, rows, cols, hEdges, vEdges);
+      const { padLeft, padTop } = getPiecePadding(row, col, rows, cols, hEdges, vEdges, depth);
+      buildPiecePath(ctx, boardX + padLeft, boardY + padTop, cellW, cellH, refs, depth);
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    return {
+      generateSharedEdgeMap, getPieceEdgeRefs, getPiecePadding,
+      buildPiecePath, strokePiecePath, drawPieceFill,
+    };
+  })();
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const COLORS = ['#e85d5d', '#5d9ae8', '#5de89a', '#e8c55d'];
+
+  function render(cols) {
+    const rows = 1;
+    const cellW = 140;
+    const cellH = 110;
+    const { hEdges, vEdges, depth } = JigsawGen.generateSharedEdgeMap(rows, cols, cellW, cellH);
+    const margin = depth + 6;
+
+    canvas.width = cols * cellW + margin * 2;
+    canvas.height = cellH + margin * 2;
+
+    ctx.fillStyle = '#6a6a6a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let c = 0; c < cols; c++) {
+      JigsawGen.drawPieceFill(
+        ctx, margin + c * cellW, margin, 0, c, rows, cols,
+        cellW, cellH, hEdges, vEdges, depth, COLORS[c % COLORS.length]
+      );
+    }
+
+    for (let c = 0; c < cols; c++) {
+      const refs = JigsawGen.getPieceEdgeRefs(0, c, rows, cols, hEdges, vEdges);
+      JigsawGen.strokePiecePath(ctx, margin + c * cellW, margin, cellW, cellH, refs, depth);
+    }
+  }
+
+  render(3);
+  </script>
+</body>
+</html>
