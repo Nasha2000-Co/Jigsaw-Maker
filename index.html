@@ -150,15 +150,119 @@
     /* Upload screen */
     #screen-upload {
       justify-content: flex-start;
-      padding-top: 72px;
+      padding-top: 0;
       text-align: center;
       align-items: center;
+    }
+
+    .app:has(#screen-upload.active) header {
+      padding: 28px 20px 6px;
+    }
+
+    .app:has(#screen-play.active) header,
+    .app:has(#screen-decorate.active) header {
+      padding: 8px 20px 4px;
+    }
+
+    .app:has(#screen-decorate.active) header h1 {
+      display: none;
+    }
+
+    .app:has(#screen-decorate.active) footer {
+      padding: 6px 20px 10px;
+    }
+
+    .decorate-header-bar {
+      display: none;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+
+    .app:has(#screen-decorate.active) .decorate-header-bar {
+      display: block;
+    }
+
+    #screen-decorate {
+      padding-top: 0;
+    }
+
+    #screen-decorate .decorate-canvas-wrap {
+      margin-bottom: 8px;
+    }
+
+    #screen-decorate .tool-row {
+      margin-bottom: 8px;
+      margin-top: 0;
+    }
+
+    #screen-decorate .btn-stack {
+      gap: 8px;
+      margin-top: 6px;
+      margin-bottom: 0;
+    }
+
+    .app:has(#screen-play.active) header h1 {
+      font-size: clamp(18px, 4.5vw, 22px);
+      letter-spacing: 0.28em;
+      text-indent: 0.28em;
+    }
+
+    .play-header-bar {
+      display: none;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+
+    .app:has(#screen-play.active) .play-header-bar {
+      display: block;
+    }
+
+    .app:has(#screen-play.active) footer {
+      padding: 6px 20px 10px;
+    }
+
+    #screen-play {
+      padding-top: 0;
+    }
+
+    #screen-play .grid-hint {
+      margin-bottom: 4px;
+    }
+
+    #screen-play .grid-pills {
+      margin-bottom: 8px;
+    }
+
+    #screen-play .board-wrap {
+      margin-bottom: 6px;
+    }
+
+    #screen-play .tray-wrap {
+      margin-bottom: 4px;
+    }
+
+    #screen-play .play-hint {
+      margin-bottom: 0;
+      font-size: 10px;
+    }
+
+    #screen-play .tray-count {
+      margin: 2px 0 0;
+      min-height: 16px;
+    }
+
+    .app:has(#screen-upload.active) footer {
+      padding: 8px 20px 14px;
     }
 
     .upload-card-wrap {
       position: relative;
       width: min(300px, calc(100vw - 32px));
-      margin-top: 12px;
+      margin-top: 0;
+    }
+
+    #screen-upload .upload-card {
+      height: min(340px, calc((100vw - 32px) * 4 / 3), 48dvh);
     }
 
     .upload-card {
@@ -261,7 +365,7 @@
     #screen-upload .btn-start {
       width: min(300px, calc(100vw - 32px));
       max-width: 100%;
-      margin-top: 28px;
+      margin-top: 16px;
       padding: 15px 48px;
       font-size: 20px;
       text-align: center;
@@ -281,10 +385,15 @@
       color: #fff;
       text-align: center;
       text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-      margin-top: 14px;
+      margin-top: 10px;
+      margin-bottom: 4px;
       line-height: 1.4;
       width: 100%;
       max-width: min(300px, calc(100vw - 32px));
+    }
+
+    #screen-upload .upload-note {
+      margin-top: 8px;
     }
 
     #file-input { display: none; }
@@ -326,29 +435,6 @@
       margin-top: 16px;
     }
 
-    #screen-decorate .tool-row {
-      margin-bottom: 10px;
-    }
-
-    #screen-decorate .decorate-toolbar {
-      margin-bottom: 8px;
-    }
-
-    #screen-decorate .stroke-color-bar {
-      margin-top: 0;
-      margin-bottom: 10px;
-    }
-
-    #screen-decorate .decorate-canvas-wrap {
-      margin-bottom: 10px;
-    }
-
-    #screen-decorate .btn-stack {
-      gap: 10px;
-      margin-top: 8px;
-      margin-bottom: 0;
-    }
-
     #screen-decorate .btn-stack .btn {
       margin-top: 0;
       width: min(300px, calc(100vw - 32px));
@@ -360,7 +446,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 0;
       padding: 0 2px;
     }
 
@@ -566,7 +652,92 @@
     }
 
     .tool-btn:active { transform: scale(0.94); }
-    .tool-btn.sticker-btn { font-family: var(--sans); font-size: 13px; font-weight: 500; }
+    .tool-btn.sticker-btn,
+    .tool-btn.style-btn {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.1;
+      padding: 0 4px;
+      text-align: center;
+    }
+
+    .tool-btn-stack {
+      display: block;
+      font-size: 10px;
+      line-height: 1.15;
+      letter-spacing: 0.01em;
+    }
+
+    .tool-btn.active {
+      background: var(--black);
+      color: #fff;
+      border-color: var(--black);
+    }
+
+    .style-panel {
+      width: 100%;
+      max-width: 340px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .style-panel[hidden] { display: none !important; }
+
+    .style-panel-section + .style-panel-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .style-panel-label {
+      display: block;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 500;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .bg-mode-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .bg-mode-pill {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1.5px solid var(--black);
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--black);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .bg-mode-pill.active {
+      background: var(--black);
+      color: #fff;
+    }
+
+    .style-panel .color-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .export-bg-color-row[hidden] { display: none !important; }
 
     /* Overlay layers on decorate canvas */
     .overlay-layer {
@@ -963,116 +1134,6 @@
     .sticker-thumb:active { transform: scale(0.9); }
     .sticker-thumb img { width: 100%; height: 100%; object-fit: contain; }
 
-    /* Share sheet */
-    .share-sheet h3 {
-      text-align: center;
-      margin-bottom: 4px;
-    }
-
-    .share-sheet-options {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
-    .share-option {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      width: 100%;
-      padding: 14px 18px;
-      border-radius: 14px;
-      border: 1.5px solid rgba(0, 0, 0, 0.1);
-      background: #fff;
-      font-family: var(--sans);
-      font-size: 15px;
-      font-weight: 500;
-      color: var(--black);
-      cursor: pointer;
-      text-align: left;
-      transition: transform 0.12s, opacity 0.12s;
-    }
-
-    .share-option:active:not(:disabled) { transform: scale(0.98); }
-
-    .share-option:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .share-option-primary {
-      background: linear-gradient(135deg, #f58529 0%, #dd2a7b 50%, #8134af 100%);
-      color: #fff;
-      border: none;
-      font-family: var(--serif);
-      font-size: 17px;
-      letter-spacing: 0.03em;
-    }
-
-    .share-option-cancel {
-      justify-content: center;
-      background: #f3f3f3;
-      border: none;
-      margin-top: 4px;
-    }
-
-    .share-option-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      background: rgba(255, 255, 255, 0.22);
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-
-    .share-option:not(.share-option-primary) .share-option-icon {
-      background: rgba(0, 0, 0, 0.06);
-      color: var(--black);
-      font-size: 16px;
-    }
-
-    .share-option-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-    }
-
-    .share-option-sub {
-      font-size: 11px;
-      font-weight: 400;
-      opacity: 0.82;
-      line-height: 1.35;
-    }
-
-    .share-hint {
-      margin-top: 14px;
-      font-family: var(--sans);
-      font-size: 12px;
-      line-height: 1.45;
-      color: #666;
-      text-align: center;
-      min-height: 36px;
-    }
-
-    .share-hint.is-error { color: #b32; }
-    .share-hint.is-success { color: #2d6a3e; }
-
-    /* Share preview */
-    #share-preview {
-      border-radius: 14px;
-      max-width: 100%;
-      margin-bottom: 12px;
-      border: 1.5px solid rgba(0,0,0,0.1);
-    }
-
     /* Footer */
     footer {
       position: relative;
@@ -1196,6 +1257,15 @@
     <div class="sparkles"></div>
 
     <header>
+      <div class="play-header-bar">
+        <div class="play-toolbar">
+          <button type="button" class="btn-back" id="btn-back-play" aria-label="Back to upload">←</button>
+          <button class="btn btn-primary btn-save-top" id="btn-save-play" disabled>Save</button>
+        </div>
+      </div>
+      <div class="decorate-header-bar">
+        <button type="button" class="btn-back" id="btn-back-decorate" aria-label="Back to puzzle">←</button>
+      </div>
       <h1>JIGSAW MAKER</h1>
     </header>
 
@@ -1222,10 +1292,6 @@
 
       <!-- Screen 2: Play -->
       <section id="screen-play" class="screen">
-        <div class="play-toolbar">
-          <button type="button" class="btn-back" id="btn-back-play" aria-label="Back to upload">←</button>
-          <button class="btn btn-primary btn-save-top" id="btn-save-play" disabled>Save</button>
-        </div>
         <p class="grid-hint">Tap to switch grid</p>
         <div class="grid-pills" id="grid-pills">
           <button class="grid-pill" data-grid="3x2">3×2</button>
@@ -1244,13 +1310,6 @@
 
       <!-- Screen 3: Decorate / Share -->
       <section id="screen-decorate" class="screen">
-        <div class="decorate-toolbar">
-          <button type="button" class="btn-back" id="btn-back-decorate" aria-label="Back to puzzle">←</button>
-        </div>
-        <div class="stroke-color-bar" id="stroke-color-bar">
-          <span class="stroke-color-label">Lines</span>
-          <div class="color-swatches" id="stroke-color-swatches"></div>
-        </div>
         <div class="decorate-canvas-wrap" id="decorate-wrap">
           <canvas id="decorate-canvas"></canvas>
           <div class="overlay-layer" id="overlay-layer"></div>
@@ -1261,6 +1320,29 @@
         <div class="tool-row">
           <button class="tool-btn" id="btn-text" title="Add text">Aa</button>
           <button class="tool-btn sticker-btn" id="btn-stickers" title="Stickers">Stickers</button>
+          <button class="tool-btn style-btn" id="btn-style" title="Background and stroke colors">
+            <span class="tool-btn-stack">Bg &amp;<br>Stroke</span>
+          </button>
+        </div>
+        <div class="style-panel" id="style-panel" hidden>
+          <div class="text-style-bar-header">
+            <span class="text-style-bar-label">Background &amp; stroke</span>
+            <button type="button" class="overlay-delete-bar-btn" id="btn-close-style-panel" aria-label="Close background and stroke options">✕</button>
+          </div>
+          <div class="style-panel-section">
+            <span class="style-panel-label">Background</span>
+            <div class="bg-mode-pills" id="export-bg-mode-pills">
+              <button type="button" class="bg-mode-pill active" data-export-bg-mode="image">Photo</button>
+              <button type="button" class="bg-mode-pill" data-export-bg-mode="color">Color</button>
+            </div>
+            <div class="export-bg-color-row" id="export-bg-color-row" hidden>
+              <div class="color-swatches" id="export-bg-color-swatches"></div>
+            </div>
+          </div>
+          <div class="style-panel-section">
+            <span class="style-panel-label">Stroke jigsaw color</span>
+            <div class="color-swatches" id="stroke-color-swatches"></div>
+          </div>
         </div>
         <div class="text-style-bar" id="text-style-bar" hidden>
           <div class="text-style-bar-header">
@@ -1289,7 +1371,7 @@
           <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         </a>
         <a class="social-icon" href="https://www.threads.com/@nasha.natcha" target="_blank" rel="noopener" aria-label="Threads">
-          <svg viewBox="0 0 24 24"><path d="M12.186 0C8.91 0 6.246.96 4.186 2.88 2.126 4.8 1.066 7.44.906 10.8h3.24c.12-2.4 1.02-4.26 2.7-5.58 1.68-1.32 3.9-1.98 6.66-1.98 2.52 0 4.5.6 5.94 1.8 1.44 1.2 2.16 2.88 2.16 4.98 0 1.44-.36 2.7-1.08 3.78-.72 1.08-1.74 1.86-3.06 2.34v.06c1.68.24 3 1.02 3.96 2.34.96 1.32 1.44 3 1.44 5.04 0 2.64-.9 4.74-2.7 6.3-1.8 1.56-4.26 2.34-7.38 2.34-3.36 0-6.06-.96-8.1-2.88C2.286 20.16 1.146 17.28.906 13.68H4.146c.24 2.64 1.14 4.68 2.7 6.12 1.56 1.44 3.66 2.16 6.3 2.16 2.4 0 4.26-.6 5.58-1.8 1.32-1.2 1.98-2.88 1.98-5.04 0-1.56-.42-2.82-1.26-3.78-.84-.96-2.1-1.5-3.78-1.62V9.48c1.44-.12 2.58-.66 3.42-1.62.84-.96 1.26-2.16 1.26-3.6 0-1.68-.54-3-1.62-3.96C15.786 1.44 14.106.96 12.186.96c-2.16 0-3.84.54-5.04 1.62C6.006 3.66 5.346 5.04 5.106 6.72h3.24c.18-1.08.66-1.92 1.44-2.52.78-.6 1.86-.9 3.24-.9 1.44 0 2.52.36 3.24 1.08.72.72 1.08 1.68 1.08 2.88 0 1.08-.3 1.92-.9 2.52-.6.6-1.5.96-2.7 1.08v2.16c1.92-.12 3.42.54 4.5 1.98 1.08 1.44 1.62 3.24 1.62 5.4 0 2.52-.84 4.5-2.52 5.94-1.68 1.44-4.02 2.16-7.02 2.16-3.12 0-5.58-.84-7.38-2.52-1.8-1.68-2.76-4.08-2.88-7.2h3.24c.12 2.16.78 3.84 1.98 5.04 1.2 1.2 2.94 1.8 5.22 1.8 2.04 0 3.6-.48 4.68-1.44 1.08-.96 1.62-2.28 1.62-3.96 0-1.44-.42-2.58-1.26-3.42-.84-.84-2.1-1.32-3.78-1.44v-2.1z"/></svg>
+          <svg viewBox="0 0 13 15"><path d="M9.3126 6.44264C11.1051 7.19726 11.987 9.00359 11.4021 10.873C11.0035 12.1489 9.86808 13.1796 8.65137 13.6455C7.11734 14.2348 5.05726 14.197 3.54425 13.5692C0.47551 12.2975 -0.240361 8.76607 0.0643416 5.82814C0.276583 3.77167 1.13255 1.76704 3.02241 0.736353C4.44646 -0.043496 6.26908 -0.154206 7.82832 0.172308C9.4471 0.511434 10.7612 1.46926 11.5576 2.91965C11.8035 3.36458 12.0024 3.85645 12.1509 4.40367C12.1551 4.42469 12.1467 4.44642 12.1257 4.45062L10.9986 4.7477C10.9776 4.75191 10.9559 4.7393 10.9517 4.72248C10.7822 4.07786 10.5153 3.50541 10.1462 3.00583C8.99318 1.43703 6.87848 1.01733 5.05587 1.34384C2.90684 1.72991 1.72024 3.23916 1.37281 5.31175C1.08912 6.99477 1.17808 8.94474 1.9535 10.4967C2.60633 11.8028 3.78872 12.5357 5.21277 12.7396C5.97978 12.8454 6.72999 12.8328 7.46338 12.6968C8.51478 12.502 9.64182 11.8063 10.0992 10.8099C10.3962 10.1653 10.4256 9.34762 10.0992 8.70721C9.9129 8.34286 9.63272 8.04997 9.26427 7.82996C9.24746 7.81735 9.22155 7.82576 9.21314 7.84258C9.20894 7.84678 9.20893 7.85098 9.20893 7.85519C9.16621 8.16909 9.09477 8.47809 8.98829 8.77938C8.83559 9.20749 8.61565 9.57674 8.32285 9.87733C7.3394 10.8905 5.62746 10.9795 4.47029 10.2501C3.54637 9.66503 3.19893 8.46968 3.63953 7.48593C4.09693 6.46855 5.21627 6.02784 6.27958 5.97669C6.88128 5.94726 7.43676 5.97248 7.9495 6.04465C7.97051 6.04885 7.98731 6.03204 7.99222 6.01102V5.9984C7.94529 5.76508 7.89065 5.5745 7.82271 5.42596C7.46687 4.64191 6.66554 4.4338 5.86491 4.5354C5.35217 4.59916 4.94939 4.84089 4.64819 5.25639C4.63558 5.27321 4.61457 5.27741 4.59706 5.2648L3.63953 4.61178C3.62271 4.59917 3.61852 4.57814 3.63113 4.55642C4.14387 3.83543 4.83872 3.41572 5.72061 3.30152C6.44979 3.20412 7.26725 3.31833 7.90327 3.7044C8.85661 4.28946 9.19563 5.34118 9.28038 6.4048C9.28879 6.42582 9.29719 6.43843 9.3098 6.44264H9.3126ZM4.73925 8.10463C4.54873 8.74505 4.98933 9.24953 5.58683 9.40158C6.42598 9.61388 7.3583 9.4268 7.75687 8.56637C7.91377 8.22725 8.00694 7.82856 8.03635 7.37523C8.03635 7.35421 8.02375 7.33739 8.00694 7.33739C7.38423 7.21477 6.74399 7.18885 6.09116 7.25261C5.56161 7.30796 4.90456 7.5497 4.73925 8.10463Z"/></svg>
         </a>
       </div>
     </footer>
@@ -1304,38 +1386,6 @@
       <h3>STICKERS</h3>
     </div>
     <div class="sticker-grid" id="sticker-grid"></div>
-  </div>
-
-  <!-- Share sheet -->
-  <div class="sheet-backdrop" id="share-sheet-backdrop"></div>
-  <div class="bottom-sheet share-sheet" id="share-sheet">
-    <div class="sheet-handle"></div>
-    <h3>SHARE</h3>
-    <div class="share-sheet-options">
-      <button type="button" class="share-option share-option-primary" id="share-ig-story">
-        <span class="share-option-icon">IG</span>
-        <span class="share-option-text">
-          <span>Instagram Story</span>
-          <span class="share-option-sub" id="share-ig-sub">Opens your share menu — pick Instagram, then Story</span>
-        </span>
-      </button>
-      <button type="button" class="share-option" id="share-more">
-        <span class="share-option-icon">↗</span>
-        <span class="share-option-text">
-          <span>More apps</span>
-          <span class="share-option-sub">Messages, TikTok, WhatsApp, and more</span>
-        </span>
-      </button>
-      <button type="button" class="share-option" id="share-save-sheet">
-        <span class="share-option-icon">↓</span>
-        <span class="share-option-text">
-          <span>Save image</span>
-          <span class="share-option-sub">Download to your camera roll or files</span>
-        </span>
-      </button>
-      <button type="button" class="share-option share-option-cancel" id="share-cancel">Cancel</button>
-    </div>
-    <p class="share-hint" id="share-hint"></p>
   </div>
 
   <!-- Text modal -->
@@ -1646,6 +1696,8 @@
     trayH: 0,
     assembledCanvas: null,
     strokeColor: '#ffffff',
+    exportBgMode: 'image',
+    exportBgColor: '#f5ebe0',
     decorateReady: false,
     overlays: [],
     selectedOverlay: null,
@@ -1669,7 +1721,6 @@
   const STICKERS = [
     '01_black_polka_dot_bow',
     '01_brown_pink_stripe_button',
-    '01_gold_t_clip',
     '01_pink_lily_star',
     '01_pink_tulip_gold_leaves',
     '02_blue_heart',
@@ -1682,43 +1733,35 @@
     '03_hotpink_yellow_dot_button',
     '03_pink_gladiolus_stem',
     '03_red_oval_rose',
-    '03_silver_bulldog_clip',
-    '04_black_pushpin',
     '04_burgundy_heart_seal',
     '04_cream_bunny_button',
     '04_green_check_bow',
     '04_green_orchid',
     '04_mauve_flower_line',
     '05_blue_satin_bow',
-    '05_gold_pushpin',
     '05_pink_green_hibiscus_round',
     '05_pink_rose_relief',
     '06_blue_gingham_bow',
     '06_envelope_heart_seal',
     '06_pale_pink_ribbon',
-    '06_pink_pushpin',
     '06_soft_pink_lily_side',
     '07_beige_gingham_bow',
     '07_gold_leaf_branch',
     '07_pale_pink_daylily',
     '07_pale_pink_flower_button',
-    '07_silver_pushpin',
     '08_cherry_blossom_spray',
     '08_cream_butterfly',
-    '08_red_binder_clip',
     '08_red_velvet_bow',
     '08_white_round_button',
     '09_brown_round_button',
     '09_brown_satin_bow',
     '09_dark_red_hibiscus',
-    '09_pink_binder_clip',
     '09_pink_raised_heart',
     '09_pink_sakura_single',
     '10_blue_stripe_bow',
     '10_butterfly_patch',
     '10_gold_handdrawn_heart',
     '10_pink_floral_button',
-    '10_red_paperclip',
     '10_white_pink_lotus',
     '11_clear_tulip_copper',
     '11_cream_flower_center_button',
@@ -1727,48 +1770,70 @@
     '12_gold_heart_frame',
     '12_pink_heart_button',
     '12_pink_lily_stem',
-    '13',
     '13_gold_stars',
     '13_pale_pink_thread_button',
+    '13_pink_scallop_shell',
     '13_pink_waterlily_pad',
-    '14',
     '14_burgundy_heart',
     '14_cream_heart_button',
     '14_gold_heart_charm_444',
     '14_pink_waterlily_open',
-    '15',
+    '14_white_scallop_shell',
     '15_brown_silver_dot_button',
     '15_gold_shell',
-    '16',
+    '15_white_starfish',
+    '16_oyster_shell_pearl',
     '16_soft_pink_round_button',
-    '17',
     '17_brown_plaid_button',
-    '18',
+    '17_iridescent_oyster_pearl',
     '18_pink_flower_button',
-    '19',
+    '18_spiral_moon_shell',
+    '19_colorful_coral_reef',
     '19_cream_round_button',
-    '20',
     '20_pink_flower_white_center',
-    '21',
+    '20_purple_orange_coral',
     '21_beige_round_button',
+    '21_blue_watercolor_coral',
     '22_red_plaid_button',
+    '23_silver_bulldog_clip',
     '23_taupe_round_button',
+    '24_black_push_pin',
     '24_pink_star_button',
+    '25_pink_push_pin',
     '25_soft_pink_round_button',
     '26_brown_pink_dot_button',
+    '26_gold_split_pin',
+    '27_silver_split_pin',
     '27_yellow_star_cream_center',
     '28_mustard_round_button',
-    'Coffee1',
-    'Coffee2',
-    'Coffee3',
-    'Match straberry',
-    'Match1',
-    'Match2',
-    'Match3',
-    'croissant',
-    'croissant bag',
-    'croissantHam',
-    'waffle',
+    '28_red_bulldog_clip',
+    '29_red_paperclip',
+    '30_pink_binder_clip',
+    '31_gold_clip',
+    '32_brown_teddy_bear',
+    '33_silver_digital_camera',
+    '34_vintage_black_telephone',
+    '35_gold_gramophone',
+    '36_torn_paper_scrap',
+    '37_green_star_washi_tape',
+    '38_cream_star_washi_tape',
+    '39_ivory_lace_ribbon',
+    '40_open_book',
+    '41_vinyl_records',
+    '42_vintage_rose_envelope',
+    '43_orange_monarch_butterfly',
+    '44_blue_morpho_butterfly',
+    '45_iced_coffee_cup',
+    '46_iced_coffee_top_view',
+    '47_hot_coffee_cup',
+    '48_iced_matcha_strawberry',
+    '49_iced_matcha_latte',
+    '50_watercolor_matcha_latte',
+    '51_matcha_latte_mug',
+    '52_croissant_paper_bag',
+    '53_croissant',
+    '54_ham_cheese_croissant',
+    '55_waffle_croissant',
   ];
 
   const $ = (sel) => document.querySelector(sel);
@@ -1793,6 +1858,11 @@
     state.screen = name;
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[name].classList.add('active');
+    if (name === 'decorate') {
+      applyExportBgPreview();
+    } else {
+      restoreAppBg();
+    }
   }
 
   const PUZZLE_WIDTH = 300;
@@ -1885,6 +1955,130 @@
     { id: 'sage', value: '#a8c9a0' },
   ];
 
+  const EXPORT_BG_COLORS = [
+    { id: 'cream', value: '#f5ebe0' },
+    { id: 'blush', value: '#f8e0e4' },
+    { id: 'rose', value: '#e8a0b4' },
+    { id: 'sky', value: '#d4e8f5' },
+    { id: 'sage', value: '#e4ede0' },
+    { id: 'lavender', value: '#ebe4f5' },
+    { id: 'white', value: '#ffffff' },
+    { id: 'charcoal', value: '#2a2a2a' },
+  ];
+
+  const APP_BG_IMAGE = "url('assets/jm-bg.png') center/cover no-repeat fixed";
+
+  function restoreAppBg() {
+    const bgEl = $('.bg');
+    if (!bgEl) return;
+    bgEl.style.background = '';
+    bgEl.style.backgroundImage = '';
+  }
+
+  function applyExportBgPreview() {
+    const bgEl = $('.bg');
+    if (!bgEl) return;
+    if (state.exportBgMode === 'color') {
+      bgEl.style.backgroundImage = 'none';
+      bgEl.style.background = state.exportBgColor;
+    } else {
+      bgEl.style.backgroundImage = APP_BG_IMAGE;
+      bgEl.style.background = '';
+    }
+  }
+
+  function isPresetExportBgColor(hex) {
+    return EXPORT_BG_COLORS.some((c) => c.value.toLowerCase() === normalizeHexColor(hex));
+  }
+
+  function applyExportBgMode(mode) {
+    state.exportBgMode = mode === 'color' ? 'color' : 'image';
+    syncExportBgUI();
+    applyExportBgPreview();
+  }
+
+  function applyExportBgColor(hex) {
+    state.exportBgColor = normalizeHexColor(hex);
+    if (state.exportBgMode !== 'color') {
+      state.exportBgMode = 'color';
+    }
+    syncExportBgUI();
+    applyExportBgPreview();
+  }
+
+  function syncExportBgUI() {
+    const modeRow = $('#export-bg-mode-pills');
+    const colorRow = $('#export-bg-color-row');
+    const swatchRow = $('#export-bg-color-swatches');
+    if (!modeRow) return;
+
+    modeRow.querySelectorAll('[data-export-bg-mode]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.exportBgMode === state.exportBgMode);
+    });
+
+    if (colorRow) colorRow.hidden = state.exportBgMode !== 'color';
+
+    if (swatchRow) {
+      const color = normalizeHexColor(state.exportBgColor);
+      const isCustom = !isPresetExportBgColor(color);
+      swatchRow.querySelectorAll('[data-export-bg-color]').forEach((btn) => {
+        btn.classList.toggle('active', normalizeHexColor(btn.dataset.exportBgColor) === color);
+      });
+      const customBtn = swatchRow.querySelector('[data-export-bg-custom]');
+      if (customBtn) {
+        customBtn.classList.toggle('active', isCustom);
+        customBtn.style.background = isCustom ? color : '';
+      }
+      const colorInput = swatchRow.querySelector('[data-export-bg-color-input]');
+      if (colorInput) colorInput.value = color;
+    }
+  }
+
+  function initExportBgUI() {
+    const swatchRow = $('#export-bg-color-swatches');
+    const modeRow = $('#export-bg-mode-pills');
+    if (!swatchRow || swatchRow.dataset.ready) return;
+    swatchRow.dataset.ready = '1';
+
+    const swatches = EXPORT_BG_COLORS.map((c) =>
+      `<button type="button" class="color-swatch" data-export-bg-color="${c.value}" data-export-bg-id="${c.id}" style="background:${c.value};${c.id === 'white' ? 'box-shadow:inset 0 0 0 1px rgba(0,0,0,0.12)' : ''}" title="${c.id}"></button>`
+    ).join('');
+
+    swatchRow.innerHTML = `
+      ${swatches}
+      <button type="button" class="color-swatch color-swatch-custom" data-export-bg-custom title="Custom background color">
+        <span class="color-swatch-plus">+</span>
+      </button>
+      <input type="color" class="color-input-hidden" data-export-bg-color-input value="#f5ebe0" tabindex="-1" aria-hidden="true">
+    `;
+
+    swatchRow.addEventListener('click', (e) => {
+      const swatch = e.target.closest('[data-export-bg-color]');
+      if (swatch) {
+        applyExportBgColor(swatch.dataset.exportBgColor);
+        return;
+      }
+      if (e.target.closest('[data-export-bg-custom]')) {
+        swatchRow.querySelector('[data-export-bg-color-input]')?.click();
+      }
+    });
+
+    swatchRow.querySelector('[data-export-bg-color-input]')?.addEventListener('input', (e) => {
+      applyExportBgColor(e.target.value);
+    });
+
+    modeRow?.querySelectorAll('[data-export-bg-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => applyExportBgMode(btn.dataset.exportBgMode));
+    });
+
+    syncExportBgUI();
+  }
+
+  function initStylePanelUI() {
+    initExportBgUI();
+    initStrokeColorUI();
+  }
+
   function hexToStrokeRgba(hex, opacity = 0.98) {
     const h = normalizeHexColor(hex);
     const r = parseInt(h.slice(1, 3), 16);
@@ -1949,7 +2143,7 @@
 
     row.innerHTML = `
       ${swatches}
-      <button type="button" class="color-swatch color-swatch-custom" data-stroke-custom title="Custom line color">
+      <button type="button" class="color-swatch color-swatch-custom" data-stroke-custom title="Custom stroke color">
         <span class="color-swatch-plus">+</span>
       </button>
       <input type="color" class="color-input-hidden" data-stroke-color-input value="#ffffff" tabindex="-1" aria-hidden="true">
@@ -1977,6 +2171,14 @@
   /* ============================================================
      PUZZLE INIT
      ============================================================ */
+  function getPlayBoardScale() {
+    const widthScale = (window.innerWidth - 40) / PUZZLE_WIDTH;
+    const reserved = 310;
+    const availableH = Math.max(180, window.innerHeight - reserved);
+    const heightScale = availableH / PUZZLE_HEIGHT;
+    return Math.min(1, widthScale, heightScale);
+  }
+
   function initPuzzle({ preserveProgress = false } = {}) {
     state.puzzleCompletedTracked = false;
     state.decorateReady = false;
@@ -1990,7 +2192,7 @@
     state.cols = cols;
 
     const img = state.image;
-    const scale = Math.min(1, (window.innerWidth - 40) / PUZZLE_WIDTH);
+    const scale = getPlayBoardScale();
     state.boardW = PUZZLE_WIDTH * scale;
     state.boardH = PUZZLE_HEIGHT * scale;
     state.cellW = state.boardW / cols;
@@ -2425,7 +2627,11 @@
   function setupDecorateScreen({ resetOverlays = true } = {}) {
     const flat = flattenPuzzle();
     const maxW = Math.min(300, window.innerWidth - 40);
-    const scale = maxW / flat.width;
+    const reserved = 270;
+    const availableH = Math.max(160, window.innerHeight - reserved);
+    const widthScale = maxW / flat.width;
+    const heightScale = availableH / flat.height;
+    const scale = Math.min(widthScale, heightScale);
     const dw = flat.width * scale;
     const dh = flat.height * scale;
 
@@ -2446,13 +2652,14 @@
       state.overlays = [];
       state.selectedOverlay = null;
       textStyleBar.hidden = true;
+      closeStylePanel();
     }
   }
 
   $('#btn-save-play').addEventListener('click', () => {
     setupDecorateScreen({ resetOverlays: !state.decorateReady });
     state.decorateReady = true;
-    initStrokeColorUI();
+    initStylePanelUI();
     showScreen('decorate');
     trackEvent('decorate_done');
   });
@@ -2809,6 +3016,29 @@
   const modalTextStyle = $('#modal-text-style');
   const inlineTextStyle = $('#inline-text-style');
   const textStyleBar = $('#text-style-bar');
+  const stylePanel = $('#style-panel');
+  const btnStyle = $('#btn-style');
+
+  function closeStylePanel() {
+    if (stylePanel) stylePanel.hidden = true;
+    btnStyle?.classList.remove('active');
+  }
+
+  function toggleStylePanel() {
+    closeSheet();
+    closeTextModal();
+    deselectAllOverlays();
+    const opening = stylePanel.hidden;
+    if (opening) {
+      stylePanel.hidden = false;
+      btnStyle.classList.add('active');
+    } else {
+      closeStylePanel();
+    }
+  }
+
+  btnStyle?.addEventListener('click', toggleStylePanel);
+  $('#btn-close-style-panel')?.addEventListener('click', closeStylePanel);
   let overlayDrag = null;
 
   bindTextStyleToolbar(modalTextStyle, () => textStyleDraft, (style) => {
@@ -2857,14 +3087,16 @@
   }, { passive: false });
 
   screens.decorate.addEventListener('click', (e) => {
-    if (e.target.closest('.overlay-item, #text-style-bar, #stroke-color-bar, #text-modal, .bottom-sheet, .sheet-backdrop, #share-sheet')) return;
+    if (e.target.closest('.overlay-item, #text-style-bar, #style-panel, #btn-style, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
+    closeStylePanel();
   });
 
   screens.decorate.addEventListener('touchend', (e) => {
     if (overlayDrag) return;
-    if (e.target.closest('.overlay-item, #text-style-bar, #stroke-color-bar, #text-modal, .bottom-sheet, .sheet-backdrop, #share-sheet')) return;
+    if (e.target.closest('.overlay-item, #text-style-bar, #style-panel, #btn-style, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
+    closeStylePanel();
   });
 
   document.addEventListener('keydown', (e) => {
@@ -2903,6 +3135,7 @@
   const sheetBackdrop = $('#sheet-backdrop');
 
   function openSheet() {
+    closeStylePanel();
     bottomSheet.classList.add('open');
     sheetBackdrop.classList.add('open');
   }
@@ -2967,6 +3200,8 @@
   }
 
   function openTextModal(overlay = null) {
+    closeStylePanel();
+    closeSheet();
     editingTextOverlay = overlay;
     const title = $('#text-modal-title');
     const confirmBtn = $('#text-confirm');
@@ -3192,7 +3427,6 @@
   $('#btn-back-decorate').addEventListener('click', () => {
     closeSheet();
     closeTextModal();
-    closeShareSheet();
     deselectAllOverlays();
     state.pieces.forEach((p) => { p._composed = null; });
     drawBoard();
@@ -3242,19 +3476,6 @@
     ctx.drawImage(img, dx, dy, dw, dh);
   }
 
-  function drawExportTitle(ctx, exportW) {
-    const y = 168;
-    const fontSize = 58;
-    ctx.save();
-    ctx.font = `500 ${fontSize}px "Instrument Serif", Georgia, serif`;
-    ctx.fillStyle = '#1a1a1a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(fontSize * 0.35)}px`;
-    ctx.fillText('JIGSAW MAKER', exportW / 2, y);
-    ctx.restore();
-  }
-
   function drawExportCredit(ctx, exportW, exportH) {
     const y = exportH - 88;
     const fontSize = 34;
@@ -3271,13 +3492,13 @@
   }
 
   function getExportCardRect(exportW, exportH) {
-    const titleBlock = 300;
+    const titleBlock = 140;
     const footerBlock = 150;
     const cardW = Math.min(820, exportW - 120);
     const cardH = Math.round(cardW * (4 / 3));
     const remainingH = exportH - titleBlock - footerBlock;
     const cardX = Math.round((exportW - cardW) / 2);
-    const cardY = Math.round(titleBlock + (remainingH - cardH) * 0.58);
+    const cardY = Math.round(titleBlock + (remainingH - cardH) * 0.52);
     const radius = Math.round(14 * (cardW / PUZZLE_WIDTH));
     return { x: cardX, y: cardY, w: cardW, h: cardH, radius };
   }
@@ -3384,7 +3605,6 @@
 
   async function renderStoryExport() {
     await document.fonts.ready;
-    const bg = await getExportBgImage();
     const assembled = state.assembledCanvas || flattenPuzzle();
     const layer = $('#overlay-layer');
     const layerW = layer.clientWidth || assembled.width;
@@ -3398,9 +3618,14 @@
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    drawCoverImage(ctx, bg, W, H);
-    drawExportBgOverlay(ctx, W, H);
-    drawExportTitle(ctx, W);
+    if (state.exportBgMode === 'color') {
+      ctx.fillStyle = state.exportBgColor;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      const bg = await getExportBgImage();
+      drawCoverImage(ctx, bg, W, H);
+      drawExportBgOverlay(ctx, W, H);
+    }
 
     const card = getExportCardRect(W, H);
     drawExportCardShadow(ctx, card);
@@ -3415,15 +3640,10 @@
     return renderStoryExport();
   }
 
-  function isMobileDevice() {
-    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  }
-
-  function canShareFiles() {
+  function canShareFile(file) {
     if (!navigator.share || !navigator.canShare) return false;
     try {
-      const probe = new File([''], 'probe.jpg', { type: 'image/jpeg' });
-      return navigator.canShare({ files: [probe] });
+      return navigator.canShare({ files: [file] });
     } catch {
       return false;
     }
@@ -3431,14 +3651,14 @@
 
   async function getShareBlob() {
     const canvas = await flattenFinal();
-    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   }
 
   function blobToShareFile(blob) {
-    return new File([blob], 'jigsaw-maker-story.jpg', { type: 'image/jpeg' });
+    return new File([blob], 'jigsaw-story.png', { type: 'image/png' });
   }
 
-  function downloadBlob(blob, filename = 'jigsaw-maker-story.jpg') {
+  function downloadBlob(blob, filename = 'jigsaw-story.png') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -3447,158 +3667,35 @@
     URL.revokeObjectURL(url);
   }
 
-  const shareSheet = $('#share-sheet');
-  const shareSheetBackdrop = $('#share-sheet-backdrop');
-  const shareHint = $('#share-hint');
-  const shareIgBtn = $('#share-ig-story');
-  const shareMoreBtn = $('#share-more');
-  const shareSaveSheetBtn = $('#share-save-sheet');
-
-  let shareExportPromise = null;
-
-  function invalidateShareExport() {
-    shareExportPromise = null;
-  }
-
-  function setShareHint(message, tone = '') {
-    shareHint.textContent = message || '';
-    shareHint.classList.remove('is-error', 'is-success');
-    if (tone) shareHint.classList.add(tone);
-  }
-
-  function updateShareSheetAvailability() {
-    const fileShareOk = canShareFiles();
-    const secure = window.isSecureContext;
-    shareMoreBtn.hidden = !fileShareOk;
-    shareMoreBtn.disabled = !fileShareOk;
-
-    if (!secure) {
-      setShareHint('Sharing needs a secure connection. Open via http://127.0.0.1:8767 on your phone, not as a downloaded file.');
-      shareIgBtn.disabled = false;
-      return;
-    }
-
-    if (fileShareOk && isMobileDevice()) {
-      setShareHint('Tip: choose Instagram, then tap Story in the next screen.');
-    } else if (fileShareOk) {
-      setShareHint('On desktop, pick an app from the share menu or save the image first.');
-    } else {
-      setShareHint('Your browser cannot share files directly. Save the image, then upload it in Instagram → Story.');
-    }
-  }
-
-  async function ensureShareExport() {
-    if (!shareExportPromise) {
-      shareExportPromise = getShareBlob();
-    }
-    return shareExportPromise;
-  }
-
-  function openShareSheet() {
+  async function shareStory() {
     trackEvent('share_clicked');
     closeSheet();
+    closeStylePanel();
     closeTextModal();
     deselectAllOverlays();
-    invalidateShareExport();
-    updateShareSheetAvailability();
-    shareSheet.classList.add('open');
-    shareSheetBackdrop.classList.add('open');
-    shareIgBtn.disabled = true;
-    shareSaveSheetBtn.disabled = true;
-    setShareHint('Preparing your story image…');
-
-    ensureShareExport()
-      .then(() => {
-        shareIgBtn.disabled = false;
-        shareSaveSheetBtn.disabled = false;
-        updateShareSheetAvailability();
-      })
-      .catch(() => {
-        setShareHint('Could not prepare the image. Please try again.', 'is-error');
-      });
-  }
-
-  function closeShareSheet() {
-    shareSheet.classList.remove('open');
-    shareSheetBackdrop.classList.remove('open');
-  }
-
-  async function shareViaNative(file, { text } = {}) {
-    if (!canShareFiles()) return false;
-    await navigator.share({
-      files: [file],
-      title: 'Jigsaw Maker',
-      text: text || '',
-    });
-    return true;
-  }
-
-  async function shareToInstagramStory() {
     try {
-      const blob = await ensureShareExport();
+      const blob = await getShareBlob();
       const file = blobToShareFile(blob);
-
-      if (canShareFiles()) {
-        await shareViaNative(file, {
-          text: isMobileDevice() ? 'Add to your Instagram Story' : '',
-        });
-        closeShareSheet();
+      if (canShareFile(file)) {
+        await navigator.share({ files: [file], title: 'Jigsaw Maker' });
         return;
       }
-
       downloadBlob(blob);
-      setShareHint(
-        isMobileDevice()
-          ? 'Image saved. Open Instagram → + → Story → pick this image from your gallery.'
-          : 'Image saved. Open Instagram on your phone and add it to your Story.',
-        'is-success'
-      );
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      setShareHint('Could not share. Try Save image, then upload in Instagram.', 'is-error');
     }
   }
 
-  async function shareToMoreApps() {
-    try {
-      const blob = await ensureShareExport();
-      const file = blobToShareFile(blob);
-      await shareViaNative(file);
-      closeShareSheet();
-    } catch (err) {
-      if (err?.name === 'AbortError') return;
-      setShareHint('Share was blocked. Try Save image instead.', 'is-error');
-    }
-  }
-
-  async function saveShareImage() {
-    try {
-      const blob = await ensureShareExport();
-      downloadBlob(blob);
-      trackEvent('image_saved');
-      setShareHint('Image saved to your device.', 'is-success');
-      closeShareSheet();
-    } catch {
-      setShareHint('Could not save the image. Please try again.', 'is-error');
-    }
-  }
-
-  $('#btn-share').addEventListener('click', openShareSheet);
-  $('#share-cancel').addEventListener('click', closeShareSheet);
-  shareSheetBackdrop.addEventListener('click', closeShareSheet);
-  shareIgBtn.addEventListener('click', shareToInstagramStory);
-  shareMoreBtn.addEventListener('click', shareToMoreApps);
-  shareSaveSheetBtn.addEventListener('click', saveShareImage);
-
-  $('#btn-save-image').addEventListener('click', async () => {
+  async function saveImage() {
     try {
       const blob = await getShareBlob();
       downloadBlob(blob);
       trackEvent('image_saved');
-    } catch {
-      setShareHint('Could not save the image. Please try again.', 'is-error');
-    }
-  });
+    } catch (_) {}
+  }
+
+  $('#btn-share').addEventListener('click', shareStory);
+  $('#btn-save-image').addEventListener('click', saveImage);
 
   /* ============================================================
      RESIZE HANDLER
