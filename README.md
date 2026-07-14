@@ -2,7 +2,7 @@
 
 Turn any photo into a jigsaw puzzle, decorate it, and share to Instagram Story.
 
-Live app: https://nasha2000-co.github.io/Jigsaw-Maker/
+Live app: https://jigsawmaker.online/ (also https://nasha2000-co.github.io/Jigsaw-Maker/)
 
 ## Run locally
 
