@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607142325">
+  <meta name="app-version" content="202607142327">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -2496,7 +2496,7 @@
       }
     }
 
-    scatterTrayPieces();
+    scatterTrayPieces({ randomize: true });
     resizeCanvases();
     drawBoard();
     drawTray();
@@ -2505,21 +2505,80 @@
     updateTrayCount();
   }
 
-  function scatterTrayPieces() {
+  function getTrayPieceDisplaySize(piece) {
+    const pw = piece.canvas.width;
+    const ph = piece.canvas.height;
+    const scale = Math.min(72 / pw, 72 / ph);
+    return { dw: pw * scale, dh: ph * scale };
+  }
+
+  function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function scatterTrayPieces({ randomize = false } = {}) {
     const unlocked = state.pieces.filter(p => !p.locked);
     const maxTrayW = Math.min(340, window.innerWidth - 40);
-    const slotW = unlocked.length
-      ? Math.min(78, Math.floor((maxTrayW - 24) / unlocked.length))
-      : 78;
-    const trayW = Math.max(160, 24 + unlocked.length * slotW);
-    state.trayW = trayW;
-    state.trayH = 96;
-    state.traySlotW = slotW;
+    const pad = 10;
 
-    unlocked.forEach((p, i) => {
-      p.trayX = 12 + i * slotW;
-      p.trayY = 12;
-    });
+    if (!unlocked.length) {
+      state.trayW = 160;
+      state.trayH = 96;
+      resizeTrayCanvas();
+      return;
+    }
+
+    if (randomize) {
+      shuffleInPlace(unlocked);
+
+      const count = unlocked.length;
+      const rows = count <= 5 ? 1 : count <= 10 ? 2 : 3;
+      const cols = Math.ceil(count / rows);
+      const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / cols));
+      state.trayW = Math.max(160, pad * 2 + cols * Math.max(slotW, 64));
+      state.trayH = Math.max(96, pad * 2 + rows * 78);
+
+      const occupied = [];
+      const overlaps = (x, y, w, h) =>
+        occupied.some((o) => !(x + w <= o.x + 6 || x >= o.x + o.w - 6 || y + h <= o.y + 6 || y >= o.y + o.h - 6));
+
+      unlocked.forEach((p, i) => {
+        const { dw, dh } = getTrayPieceDisplaySize(p);
+        let placed = false;
+
+        for (let attempt = 0; attempt < 60 && !placed; attempt++) {
+          const x = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
+          const y = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
+          if (!overlaps(x, y, dw, dh)) {
+            p.trayX = x;
+            p.trayY = y;
+            occupied.push({ x, y, w: dw, h: dh });
+            placed = true;
+          }
+        }
+
+        if (!placed) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          p.trayX = pad + col * slotW + (Math.random() - 0.5) * 14;
+          p.trayY = pad + row * 74 + (Math.random() - 0.5) * 10;
+        }
+      });
+    } else {
+      let maxX = pad;
+      let maxY = pad;
+      unlocked.forEach((p) => {
+        const { dw, dh } = getTrayPieceDisplaySize(p);
+        maxX = Math.max(maxX, p.trayX + dw + pad);
+        maxY = Math.max(maxY, p.trayY + dh + pad);
+      });
+      state.trayW = Math.max(160, Math.min(maxTrayW, maxX));
+      state.trayH = Math.max(96, maxY);
+    }
 
     resizeTrayCanvas();
   }
@@ -2536,7 +2595,7 @@
 
   /** Resize tray bitmap, wipe stale pixels, redraw remaining pieces */
   function refreshTray() {
-    scatterTrayPieces();
+    scatterTrayPieces({ randomize: false });
     drawTray();
     updateTrayCount();
   }
@@ -2646,11 +2705,7 @@
 
     const dragging = dragState?.piece;
     state.pieces.filter(p => !p.locked && p !== dragging).forEach(p => {
-      const pw = p.canvas.width;
-      const ph = p.canvas.height;
-      const scale = Math.min(72 / pw, 72 / ph);
-      const dw = pw * scale;
-      const dh = ph * scale;
+      const { dw, dh } = getTrayPieceDisplaySize(p);
       const composed = composePieceWithStroke(p);
       ctx.drawImage(composed, p.trayX, p.trayY, dw, dh);
       p._trayDw = dw;
