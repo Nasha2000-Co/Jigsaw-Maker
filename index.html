@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607142249">
+  <meta name="app-version" content="202607142325">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -3873,6 +3873,36 @@
     ctx.restore();
   }
 
+  function drawExportTitle(ctx, exportW) {
+    const text = 'JIGSAW MAKER';
+    const fontSize = 54;
+    const letterSpacing = fontSize * 0.28;
+    const y = 78;
+
+    ctx.save();
+    ctx.font = `500 ${fontSize}px "Instrument Serif", Georgia, serif`;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.85)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 1;
+
+    const chars = [...text];
+    let totalW = 0;
+    for (let i = 0; i < chars.length; i++) {
+      totalW += ctx.measureText(chars[i]).width;
+      if (i < chars.length - 1) totalW += letterSpacing;
+    }
+
+    let x = (exportW - totalW) / 2;
+    ctx.textAlign = 'left';
+    for (const ch of chars) {
+      ctx.fillText(ch, x, y);
+      x += ctx.measureText(ch).width + letterSpacing;
+    }
+    ctx.restore();
+  }
+
   function getExportCardRect(exportW, exportH) {
     const titleBlock = 140;
     const footerBlock = 150;
@@ -4014,6 +4044,7 @@
     }
 
     const card = getExportCardRect(W, H);
+    drawExportTitle(ctx, W);
     drawExportCardShadow(ctx, card);
     drawExportPuzzleCard(ctx, assembled, card);
     drawExportOverlays(ctx, card, layout);
