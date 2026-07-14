@@ -26,7 +26,6 @@
       --glass-border: rgba(255, 255, 255, 0.85);
       --black: #1a1a1a;
       --snap: 28px;
-      --bg-dim: rgba(0, 0, 0, 0.2);
       --puzzle-card-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
     }
 
@@ -56,15 +55,6 @@
       inset: 0;
       z-index: 0;
       background: url('assets/jm-bg.png') center/cover no-repeat fixed;
-    }
-
-    .bg::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background: var(--bg-dim);
-      pointer-events: none;
     }
 
     .sparkles {
@@ -149,14 +139,19 @@
 
     /* Upload screen */
     #screen-upload {
-      justify-content: flex-start;
-      padding-top: 0;
+      justify-content: center;
+      gap: 22px;
+      padding: 8px 0 20px;
       text-align: center;
       align-items: center;
     }
 
     .app:has(#screen-upload.active) header {
-      padding: 28px 20px 6px;
+      padding: 36px 20px 24px;
+    }
+
+    .app:has(#screen-upload.active) main {
+      overflow: hidden;
     }
 
     .app:has(#screen-play.active) header,
@@ -165,7 +160,9 @@
     }
 
     .app:has(#screen-decorate.active) header h1 {
-      display: none;
+      font-size: clamp(18px, 4.5vw, 22px);
+      letter-spacing: 0.28em;
+      text-indent: 0.28em;
     }
 
     .app:has(#screen-decorate.active) footer {
@@ -184,21 +181,25 @@
 
     #screen-decorate {
       padding-top: 0;
+      flex: 1;
+      min-height: 0;
     }
 
     #screen-decorate .decorate-canvas-wrap {
-      margin-bottom: 8px;
+      margin-bottom: 0;
     }
 
     #screen-decorate .tool-row {
       margin-bottom: 8px;
       margin-top: 0;
+      flex-shrink: 0;
     }
 
     #screen-decorate .btn-stack {
       gap: 8px;
       margin-top: 6px;
       margin-bottom: 0;
+      flex-shrink: 0;
     }
 
     .app:has(#screen-play.active) header h1 {
@@ -259,10 +260,12 @@
       position: relative;
       width: min(300px, calc(100vw - 32px));
       margin-top: 0;
+      flex-shrink: 1;
+      min-height: 0;
     }
 
     #screen-upload .upload-card {
-      height: min(340px, calc((100vw - 32px) * 4 / 3), 48dvh);
+      height: min(300px, calc((100vw - 32px) * 4 / 3), 40dvh);
     }
 
     .upload-card {
@@ -365,12 +368,13 @@
     #screen-upload .btn-start {
       width: min(300px, calc(100vw - 32px));
       max-width: 100%;
-      margin-top: 16px;
+      margin-top: 0;
       padding: 15px 48px;
       font-size: 20px;
       text-align: center;
       background: #000000;
       color: #ffffff;
+      flex-shrink: 0;
     }
 
     #screen-upload .btn-start:disabled {
@@ -393,7 +397,8 @@
     }
 
     #screen-upload .upload-note {
-      margin-top: 8px;
+      margin-top: 0;
+      flex-shrink: 0;
     }
 
     #file-input { display: none; }
@@ -613,20 +618,38 @@
     }
 
     /* Decorate screen */
-    .decorate-canvas-wrap {
+    .decorate-stage {
       position: relative;
+      flex: 1;
       width: 100%;
-      display: flex;
-      justify-content: center;
-      margin-bottom: 14px;
+      min-height: 160px;
+      overflow: visible;
+    }
+
+    .decorate-canvas-wrap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      overflow: visible;
+      pointer-events: none;
+      width: fit-content;
+      height: fit-content;
+    }
+
+    .decorate-canvas-wrap #decorate-canvas,
+    .decorate-canvas-wrap.eyedropper-mode {
+      pointer-events: auto;
     }
 
     #decorate-canvas {
+      display: block;
       border-radius: 14px;
-      max-width: 100%;
       touch-action: none;
       border: 1.5px solid rgba(0,0,0,0.12);
       box-shadow: var(--puzzle-card-shadow);
+      /* Display size is set in JS — never use max-width alone (breaks aspect ratio). */
     }
 
     .tool-row {
@@ -675,27 +698,13 @@
       border-color: var(--black);
     }
 
-    .style-panel {
-      width: 100%;
-      max-width: 340px;
-      padding: 12px 14px;
-      margin-bottom: 8px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .style-panel[hidden] { display: none !important; }
-
-    .style-panel-section + .style-panel-section {
+    .bottom-sheet .style-panel-section + .style-panel-section {
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid rgba(0, 0, 0, 0.08);
     }
 
-    .style-panel-label {
+    .bottom-sheet .style-panel-label {
       display: block;
       font-family: var(--sans);
       font-size: 11px;
@@ -730,7 +739,7 @@
       color: #fff;
     }
 
-    .style-panel .color-swatches {
+    .bottom-sheet .color-swatches {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -739,13 +748,13 @@
 
     .export-bg-color-row[hidden] { display: none !important; }
 
-    /* Overlay layers on decorate canvas */
+    /* Overlay layers — full decorate stage, not puzzle canvas only */
     .overlay-layer {
       position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
+      inset: 0;
       pointer-events: none;
+      overflow: visible;
+      z-index: 2;
     }
 
     .overlay-item {
@@ -983,17 +992,6 @@
       pointer-events: none;
     }
 
-    .text-style-bar {
-      width: 100%;
-      max-width: 340px;
-      padding: 12px 14px;
-      margin-bottom: 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.88);
-      backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(0,0,0,0.1);
-    }
-
     .text-style-bar-header {
       display: flex;
       align-items: center;
@@ -1027,6 +1025,8 @@
     }
 
     .text-style-bar[hidden] { display: none !important; }
+
+    .bottom-sheet .text-style-toolbar { margin-top: 0; }
 
     .text-style-bar .text-style-toolbar { margin-top: 0; }
 
@@ -1089,12 +1089,27 @@
       transform: translateY(100%);
       transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
       padding: 12px 24px 32px;
-      max-height: 55vh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
 
     .bottom-sheet.open { transform: translateY(0); }
+
+    .bottom-sheet-stickers {
+      max-height: 58vh;
+    }
+
+    .bottom-sheet-compact {
+      max-height: 42vh;
+    }
+
+    body.decorate-sheet-open .app main {
+      overflow: hidden;
+    }
+
+    body.decorate-sheet-open .overlay-item.selected {
+      outline: none;
+    }
 
     .sheet-handle {
       width: 40px;
@@ -1310,12 +1325,14 @@
 
       <!-- Screen 3: Decorate / Share -->
       <section id="screen-decorate" class="screen">
-        <div class="decorate-canvas-wrap" id="decorate-wrap">
-          <canvas id="decorate-canvas"></canvas>
-          <div class="overlay-layer" id="overlay-layer"></div>
-          <div class="eyedropper-hint" id="eyedropper-hint" hidden>
-            <span>Tap photo to pick a color</span>
+        <div class="decorate-stage" id="decorate-stage">
+          <div class="decorate-canvas-wrap" id="decorate-wrap">
+            <canvas id="decorate-canvas"></canvas>
+            <div class="eyedropper-hint" id="eyedropper-hint" hidden>
+              <span>Tap photo to pick a color</span>
+            </div>
           </div>
+          <div class="overlay-layer" id="overlay-layer"></div>
         </div>
         <div class="tool-row">
           <button class="tool-btn" id="btn-text" title="Add text">Aa</button>
@@ -1323,33 +1340,6 @@
           <button class="tool-btn style-btn" id="btn-style" title="Background and stroke colors">
             <span class="tool-btn-stack">Bg &amp;<br>Stroke</span>
           </button>
-        </div>
-        <div class="style-panel" id="style-panel" hidden>
-          <div class="text-style-bar-header">
-            <span class="text-style-bar-label">Background &amp; stroke</span>
-            <button type="button" class="overlay-delete-bar-btn" id="btn-close-style-panel" aria-label="Close background and stroke options">✕</button>
-          </div>
-          <div class="style-panel-section">
-            <span class="style-panel-label">Background</span>
-            <div class="bg-mode-pills" id="export-bg-mode-pills">
-              <button type="button" class="bg-mode-pill active" data-export-bg-mode="image">Photo</button>
-              <button type="button" class="bg-mode-pill" data-export-bg-mode="color">Color</button>
-            </div>
-            <div class="export-bg-color-row" id="export-bg-color-row" hidden>
-              <div class="color-swatches" id="export-bg-color-swatches"></div>
-            </div>
-          </div>
-          <div class="style-panel-section">
-            <span class="style-panel-label">Stroke jigsaw color</span>
-            <div class="color-swatches" id="stroke-color-swatches"></div>
-          </div>
-        </div>
-        <div class="text-style-bar" id="text-style-bar" hidden>
-          <div class="text-style-bar-header">
-            <span class="text-style-bar-label">Text styles</span>
-            <button type="button" class="overlay-delete-bar-btn" id="btn-close-text-style" aria-label="Close text styles">✕</button>
-          </div>
-          <div class="text-style-toolbar" id="inline-text-style"></div>
         </div>
         <div class="btn-stack">
           <button class="btn btn-primary" id="btn-share">Share to Story</button>
@@ -1377,15 +1367,44 @@
     </footer>
   </div>
 
-  <!-- Bottom sheet -->
+  <!-- Bottom sheets — fixed overlays; never in page flow -->
   <div class="sheet-backdrop" id="sheet-backdrop"></div>
-  <div class="bottom-sheet" id="bottom-sheet">
+  <div class="bottom-sheet bottom-sheet-stickers" id="bottom-sheet">
     <div class="sheet-handle"></div>
     <div class="panel-header">
       <button type="button" class="btn-back" id="sheet-back" aria-label="Close stickers">←</button>
       <h3>STICKERS</h3>
     </div>
     <div class="sticker-grid" id="sticker-grid"></div>
+  </div>
+  <div class="bottom-sheet bottom-sheet-compact" id="style-sheet">
+    <div class="sheet-handle"></div>
+    <div class="panel-header">
+      <button type="button" class="btn-back" id="style-sheet-back" aria-label="Close background and stroke options">←</button>
+      <h3>BACKGROUND &amp; STROKE</h3>
+    </div>
+    <div class="style-panel-section">
+      <span class="style-panel-label">Background</span>
+      <div class="bg-mode-pills" id="export-bg-mode-pills">
+        <button type="button" class="bg-mode-pill active" data-export-bg-mode="image">Photo</button>
+        <button type="button" class="bg-mode-pill" data-export-bg-mode="color">Color</button>
+      </div>
+      <div class="export-bg-color-row" id="export-bg-color-row" hidden>
+        <div class="color-swatches" id="export-bg-color-swatches"></div>
+      </div>
+    </div>
+    <div class="style-panel-section">
+      <span class="style-panel-label">Stroke jigsaw color</span>
+      <div class="color-swatches" id="stroke-color-swatches"></div>
+    </div>
+  </div>
+  <div class="bottom-sheet bottom-sheet-compact" id="text-style-sheet">
+    <div class="sheet-handle"></div>
+    <div class="panel-header">
+      <button type="button" class="btn-back" id="text-style-sheet-back" aria-label="Close text styles">←</button>
+      <h3>TEXT STYLE</h3>
+    </div>
+    <div class="text-style-toolbar" id="inline-text-style"></div>
   </div>
 
   <!-- Text modal -->
@@ -1656,6 +1675,33 @@
       return PIECE_STROKE.color;
     }
 
+    /**
+     * Board draw/snap rect — MUST use the same slot grid as buildPiecePath
+     * (col * cellW, row * cellH) plus Konva figure inset pads from createPieceCanvas.
+     * Do not use centralAnchor here; its center ≠ raster canvas center and causes visible gaps.
+     */
+    function getPieceBoardPlacement(row, col, canvasW, canvasH, boardScale, cellW, cellH) {
+      const geo = getPieceGeometry(row, col);
+      const figure = hbCanvas.getFigure(geo.piece);
+      const rect = figure.group.getClientRect({ skipTransform: false });
+      const padLeft = (rect.x - col * nativeCellW) * boardScale;
+      const padTop = (rect.y - row * nativeCellH) * boardScale;
+      const dw = canvasW * boardScale;
+      const dh = canvasH * boardScale;
+      const x = col * cellW - padLeft;
+      const y = row * cellH - padTop;
+      return {
+        x,
+        y,
+        dw,
+        dh,
+        snapX: x + dw / 2,
+        snapY: y + dh / 2,
+        padLeft,
+        padTop,
+      };
+    }
+
     return {
       PUZZLE_W,
       PUZZLE_H,
@@ -1668,6 +1714,7 @@
       buildPiecePath,
       strokePiecePath,
       createPieceCanvas,
+      getPieceBoardPlacement,
       strokeRasterizedPiece,
       strokeOnPieceCanvas,
       exportPieceFromKonva,
@@ -1699,6 +1746,8 @@
     exportBgMode: 'image',
     exportBgColor: '#f5ebe0',
     decorateReady: false,
+    decorateLayout: null,
+    decorateLayoutObserver: null,
     overlays: [],
     selectedOverlay: null,
     dragPiece: null,
@@ -1713,9 +1762,10 @@
 
   const STICKER_PATH = 'assets/Stickers';
   const STICKER_EXT = '.png';
+  const STICKER_CACHE_VERSION = '20260714';
 
   function stickerSrc(name) {
-    return `${STICKER_PATH}/${encodeURIComponent(name)}${STICKER_EXT}`;
+    return `${STICKER_PATH}/${encodeURIComponent(name)}${STICKER_EXT}?v=${STICKER_CACHE_VERSION}`;
   }
 
   const STICKERS = [
@@ -2208,13 +2258,28 @@
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const pieceData = HeadbreakerGen.createPieceCanvas(img, r, c);
+        const placement = HeadbreakerGen.getPieceBoardPlacement(
+          r,
+          c,
+          pieceData.canvas.width,
+          pieceData.canvas.height,
+          boardScale,
+          state.cellW,
+          state.cellH
+        );
         state.pieces.push({
           row: r, col: c,
           canvas: pieceData.canvas,
-          padTop: pieceData.padTop * boardScale,
-          padLeft: pieceData.padLeft * boardScale,
+          padTop: placement.padTop,
+          padLeft: placement.padLeft,
           padRight: pieceData.padRight * boardScale,
           padBottom: pieceData.padBottom * boardScale,
+          drawX: placement.x,
+          drawY: placement.y,
+          drawW: placement.dw,
+          drawH: placement.dh,
+          snapX: placement.snapX,
+          snapY: placement.snapY,
           locked: lockedSet ? lockedSet.has(`${r},${c}`) : false,
           trayX: 0, trayY: 0,
           boardX: c * state.cellW,
@@ -2329,15 +2394,12 @@
       for (let col = 0; col < cols; col++) {
         const piece = state.pieces.find(p => p.row === row && p.col === col);
         if (piece && piece.locked) {
-          const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
-          const dw = piece.canvas.width * boardScale;
-          const dh = piece.canvas.height * boardScale;
           ctx.drawImage(
             piece.canvas,
-            col * cellW - piece.padLeft,
-            row * cellH - piece.padTop,
-            dw,
-            dh
+            piece.drawX,
+            piece.drawY,
+            piece.drawW,
+            piece.drawH
           );
         }
       }
@@ -2440,29 +2502,12 @@
     return null;
   }
 
-  const SNAP_THRESHOLD = 50;
-
-  function getPieceSnapTarget(piece) {
-    const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
-    return {
-      x: piece.col * state.cellW - piece.padLeft + (piece.canvas.width * boardScale) / 2,
-      y: piece.row * state.cellH - piece.padTop + (piece.canvas.height * boardScale) / 2,
-    };
+  function getSnapThreshold() {
+    return Math.max(36, Math.min(state.cellW, state.cellH) * 0.62);
   }
 
-  function findNearestEmptySlot(bx, by) {
-    let best = null;
-    let bestDist = SNAP_THRESHOLD;
-    for (const p of state.pieces) {
-      if (p.locked) continue;
-      const t = getPieceSnapTarget(p);
-      const d = Math.hypot(bx - t.x, by - t.y);
-      if (d < bestDist) {
-        bestDist = d;
-        best = p;
-      }
-    }
-    return best;
+  function getPieceSnapTarget(piece) {
+    return { x: piece.snapX, y: piece.snapY };
   }
 
   function startDrag(piece, clientX, clientY, source) {
@@ -2542,10 +2587,10 @@
 
     const target = getPieceSnapTarget(piece);
     const dist = Math.hypot(bx - target.x, by - target.y);
-    const nearest = findNearestEmptySlot(bx, by);
+    const snapThreshold = getSnapThreshold();
     const onBoard = bx >= -20 && bx <= state.boardW + 20 && by >= -20 && by <= state.boardH + 20;
 
-    if (onBoard && nearest === piece && dist < SNAP_THRESHOLD) {
+    if (onBoard && dist < snapThreshold) {
       piece.locked = true;
       piece._composed = null;
       drawBoard();
@@ -2580,7 +2625,6 @@
   function flattenPuzzle() {
     const { boardW, boardH, rows, cols, cellW, cellH } = state;
     const img = state.image;
-    const boardScale = boardW / HeadbreakerGen.PUZZLE_W;
     const canvas = document.createElement('canvas');
     canvas.width = boardW;
     canvas.height = boardH;
@@ -2600,14 +2644,12 @@
       for (let col = 0; col < cols; col++) {
         const piece = state.pieces.find(p => p.row === row && p.col === col);
         if (piece) {
-          const dw = piece.canvas.width * boardScale;
-          const dh = piece.canvas.height * boardScale;
           ctx.drawImage(
             piece.canvas,
-            col * cellW - piece.padLeft,
-            row * cellH - piece.padTop,
-            dw,
-            dh
+            piece.drawX,
+            piece.drawY,
+            piece.drawW,
+            piece.drawH
           );
         }
       }
@@ -2624,43 +2666,75 @@
     return canvas;
   }
 
+  /**
+   * Single source of truth for decorate puzzle display size.
+   * Always scales uniformly to fit the stage — never stretch width/height independently.
+   */
+  function layoutDecoratePuzzle(flat) {
+    const stage = $('#decorate-stage');
+    const stageW = Math.max(1, stage?.clientWidth || Math.min(300, window.innerWidth - 40));
+    const stageH = Math.max(1, stage?.clientHeight || 200);
+    const pad = 8;
+    const maxW = Math.min(300, stageW - pad * 2, window.innerWidth - 40);
+    const maxH = Math.max(80, stageH - pad * 2);
+    const widthScale = maxW / flat.width;
+    const heightScale = maxH / flat.height;
+    const scale = Math.min(widthScale, heightScale, 1);
+    const puzzleW = flat.width * scale;
+    const puzzleH = flat.height * scale;
+    return {
+      stageW,
+      stageH,
+      puzzleW,
+      puzzleH,
+      puzzleX: (stageW - puzzleW) / 2,
+      puzzleY: (stageH - puzzleH) / 2,
+      scale,
+    };
+  }
+
+  function refreshDecorateLayout(flat = state.assembledCanvas) {
+    if (!flat?.width) return;
+    const layout = layoutDecoratePuzzle(flat);
+    decorateCanvas.style.width = `${layout.puzzleW}px`;
+    decorateCanvas.style.height = `${layout.puzzleH}px`;
+    decorateCanvas.style.aspectRatio = `${flat.width} / ${flat.height}`;
+    state.decorateLayout = { ...layout, sourceW: flat.width, sourceH: flat.height };
+  }
+
+  function initDecorateLayoutObserver() {
+    const stage = $('#decorate-stage');
+    if (!stage || state.decorateLayoutObserver) return;
+    state.decorateLayoutObserver = new ResizeObserver(() => {
+      if (state.screen === 'decorate' && state.assembledCanvas) {
+        refreshDecorateLayout();
+      }
+    });
+    state.decorateLayoutObserver.observe(stage);
+  }
+
   function setupDecorateScreen({ resetOverlays = true } = {}) {
     const flat = flattenPuzzle();
-    const maxW = Math.min(300, window.innerWidth - 40);
-    const reserved = 270;
-    const availableH = Math.max(160, window.innerHeight - reserved);
-    const widthScale = maxW / flat.width;
-    const heightScale = availableH / flat.height;
-    const scale = Math.min(widthScale, heightScale);
-    const dw = flat.width * scale;
-    const dh = flat.height * scale;
-
     decorateCanvas.width = flat.width;
     decorateCanvas.height = flat.height;
-    decorateCanvas.style.width = dw + 'px';
-    decorateCanvas.style.height = dh + 'px';
-
-    const ctx = decorateCanvas.getContext('2d');
-    ctx.drawImage(flat, 0, 0);
+    decorateCanvas.getContext('2d').drawImage(flat, 0, 0);
+    refreshDecorateLayout(flat);
 
     const overlayLayer = $('#overlay-layer');
-    overlayLayer.style.width = dw + 'px';
-    overlayLayer.style.height = dh + 'px';
-
     if (resetOverlays) {
       overlayLayer.innerHTML = '';
       state.overlays = [];
       state.selectedOverlay = null;
-      textStyleBar.hidden = true;
-      closeStylePanel();
+      closeDecorateSheets();
     }
   }
 
   $('#btn-save-play').addEventListener('click', () => {
-    setupDecorateScreen({ resetOverlays: !state.decorateReady });
-    state.decorateReady = true;
     initStylePanelUI();
     showScreen('decorate');
+    setupDecorateScreen({ resetOverlays: !state.decorateReady });
+    state.decorateReady = true;
+    refreshDecorateLayout();
     trackEvent('decorate_done');
   });
 
@@ -3015,30 +3089,62 @@
 
   const modalTextStyle = $('#modal-text-style');
   const inlineTextStyle = $('#inline-text-style');
-  const textStyleBar = $('#text-style-bar');
-  const stylePanel = $('#style-panel');
+  const decorateSheets = {
+    stickers: $('#bottom-sheet'),
+    style: $('#style-sheet'),
+    textStyle: $('#text-style-sheet'),
+  };
+  const sheetBackdrop = $('#sheet-backdrop');
   const btnStyle = $('#btn-style');
+  const btnStickers = $('#btn-stickers');
+
+  function isDecorateSheetOpen() {
+    return Object.values(decorateSheets).some((sheet) => sheet?.classList.contains('open'));
+  }
+
+  function syncDecorateSheetUi() {
+    document.body.classList.toggle('decorate-sheet-open', isDecorateSheetOpen());
+  }
+
+  function closeDecorateSheets() {
+    Object.values(decorateSheets).forEach((sheet) => sheet?.classList.remove('open'));
+    sheetBackdrop?.classList.remove('open');
+    btnStyle?.classList.remove('active');
+    btnStickers?.classList.remove('active');
+    syncDecorateSheetUi();
+  }
+
+  function openDecorateSheet(name) {
+    closeDecorateSheets();
+    const sheet = decorateSheets[name];
+    if (!sheet) return;
+    sheet.classList.add('open');
+    sheetBackdrop?.classList.add('open');
+    syncDecorateSheetUi();
+    if (name === 'style') btnStyle?.classList.add('active');
+    if (name === 'stickers') btnStickers?.classList.add('active');
+  }
 
   function closeStylePanel() {
-    if (stylePanel) stylePanel.hidden = true;
-    btnStyle?.classList.remove('active');
+    if (decorateSheets.style?.classList.contains('open')) {
+      closeDecorateSheets();
+    } else {
+      btnStyle?.classList.remove('active');
+    }
   }
 
   function toggleStylePanel() {
-    closeSheet();
     closeTextModal();
     deselectAllOverlays();
-    const opening = stylePanel.hidden;
-    if (opening) {
-      stylePanel.hidden = false;
-      btnStyle.classList.add('active');
-    } else {
+    if (decorateSheets.style?.classList.contains('open')) {
       closeStylePanel();
+    } else {
+      openDecorateSheet('style');
     }
   }
 
   btnStyle?.addEventListener('click', toggleStylePanel);
-  $('#btn-close-style-panel')?.addEventListener('click', closeStylePanel);
+  $('#style-sheet-back')?.addEventListener('click', closeStylePanel);
   let overlayDrag = null;
 
   bindTextStyleToolbar(modalTextStyle, () => textStyleDraft, (style) => {
@@ -3087,14 +3193,14 @@
   }, { passive: false });
 
   screens.decorate.addEventListener('click', (e) => {
-    if (e.target.closest('.overlay-item, #text-style-bar, #style-panel, #btn-style, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
 
   screens.decorate.addEventListener('touchend', (e) => {
     if (overlayDrag) return;
-    if (e.target.closest('.overlay-item, #text-style-bar, #style-panel, #btn-style, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
@@ -3110,44 +3216,88 @@
 
   function showTextStyleBar(overlay) {
     if (!overlay || overlay.type !== 'text') {
-      textStyleBar.hidden = true;
+      if (decorateSheets.textStyle?.classList.contains('open')) {
+        decorateSheets.textStyle.classList.remove('open');
+        if (!isDecorateSheetOpen()) sheetBackdrop?.classList.remove('open');
+        syncDecorateSheetUi();
+      }
       return;
     }
-    textStyleBar.hidden = false;
-    const style = {
+    syncTextStyleToolbarUI(inlineTextStyle, {
       color: overlay.color,
       bgColor: overlay.bgColor,
       fontKey: overlay.fontKey,
-    };
-    syncTextStyleToolbarUI(inlineTextStyle, style);
+    });
+    openDecorateSheet('textStyle');
   }
 
   const stickerGrid = $('#sticker-grid');
-  STICKERS.forEach(name => {
-    const div = document.createElement('div');
-    div.className = 'sticker-thumb';
-    div.innerHTML = `<img src="${stickerSrc(name)}" alt="${name}">`;
-    div.addEventListener('click', () => addSticker(name));
-    stickerGrid.appendChild(div);
-  });
+  const stickerImageCache = new Map();
 
-  const bottomSheet = $('#bottom-sheet');
-  const sheetBackdrop = $('#sheet-backdrop');
+  function loadStickerImage(name) {
+    if (stickerImageCache.has(name)) {
+      const cached = stickerImageCache.get(name);
+      return cached instanceof Promise ? cached : Promise.resolve(cached);
+    }
+    const promise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
+          stickerImageCache.set(name, img);
+          resolve(img);
+        } else {
+          stickerImageCache.set(name, null);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        stickerImageCache.set(name, null);
+        resolve(null);
+      };
+      img.src = stickerSrc(name);
+    });
+    stickerImageCache.set(name, promise);
+    return promise;
+  }
+
+  async function initStickerGrid() {
+    stickerGrid.innerHTML = '';
+    for (const name of STICKERS) {
+      const src = stickerSrc(name);
+      const ok = await new Promise((resolve) => {
+        const probe = new Image();
+        probe.onload = () => resolve(probe.naturalWidth > 0);
+        probe.onerror = () => resolve(false);
+        probe.src = src;
+      });
+      if (!ok) continue;
+
+      await loadStickerImage(name);
+
+      const div = document.createElement('div');
+      div.className = 'sticker-thumb';
+      div.innerHTML = `<img src="${src}" alt="${name}">`;
+      div.addEventListener('click', () => addSticker(name));
+      stickerGrid.appendChild(div);
+    }
+  }
+
+  initStickerGrid();
 
   function openSheet() {
-    closeStylePanel();
-    bottomSheet.classList.add('open');
-    sheetBackdrop.classList.add('open');
+    closeTextModal();
+    deselectAllOverlays();
+    openDecorateSheet('stickers');
   }
 
   function closeSheet() {
-    bottomSheet.classList.remove('open');
-    sheetBackdrop.classList.remove('open');
+    closeDecorateSheets();
   }
 
-  $('#btn-stickers').addEventListener('click', openSheet);
-  $('#sheet-back').addEventListener('click', closeSheet);
-  sheetBackdrop.addEventListener('click', closeSheet);
+  btnStickers?.addEventListener('click', openSheet);
+  $('#sheet-back')?.addEventListener('click', closeSheet);
+  sheetBackdrop?.addEventListener('click', closeSheet);
+  $('#text-style-sheet-back')?.addEventListener('click', closeDecorateSheets);
 
   let overlayId = 0;
 
@@ -3373,8 +3523,9 @@
   document.addEventListener('touchmove', (e) => {
     if (!overlayDrag) return;
     clearTimeout(longPressTimer);
+    if (e.cancelable) e.preventDefault();
     applyOverlayMove(overlayDrag, e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
+  }, { passive: false });
 
   document.addEventListener('mouseup', endOverlayDrag);
   document.addEventListener('touchend', endOverlayDrag);
@@ -3400,9 +3551,6 @@
     if (editingTextOverlay) removeOverlay(editingTextOverlay);
     closeTextModal();
   });
-  $('#btn-close-text-style').addEventListener('click', () => {
-    deselectAllOverlays();
-  });
   $('#text-confirm').addEventListener('click', () => {
     const val = $('#text-input').value.trim();
     if (!val) {
@@ -3425,7 +3573,7 @@
   });
 
   $('#btn-back-decorate').addEventListener('click', () => {
-    closeSheet();
+    closeDecorateSheets();
     closeTextModal();
     deselectAllOverlays();
     state.pieces.forEach((p) => { p._composed = null; });
@@ -3439,7 +3587,6 @@
      ============================================================ */
   const EXPORT_SIZE = { W: 1080, H: 1920 };
   const EXPORT_BG_PATH = 'assets/jm-bg.png';
-  const EXPORT_BG_OVERLAY = 'rgba(0, 0, 0, 0.2)';
   const EXPORT_CARD_SHADOW = { color: 'rgba(0, 0, 0, 0.25)', blur: 60, offsetY: 20 };
   let exportBgImage = null;
 
@@ -3503,13 +3650,6 @@
     return { x: cardX, y: cardY, w: cardW, h: cardH, radius };
   }
 
-  function drawExportBgOverlay(ctx, w, h) {
-    ctx.save();
-    ctx.fillStyle = EXPORT_BG_OVERLAY;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-  }
-
   function drawExportCardShadow(ctx, card) {
     ctx.save();
     ctx.shadowColor = EXPORT_CARD_SHADOW.color;
@@ -3541,26 +3681,34 @@
   }
 
   async function ensureStickerImagesReady() {
-    await Promise.all(state.overlays.map((overlay) => {
-      if (overlay.type !== 'sticker') return Promise.resolve();
-      const img = overlay.el.querySelector('img');
-      if (!img) return Promise.resolve();
-      if (img.complete && img.naturalWidth) return Promise.resolve();
-      return new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
+    await Promise.all(state.overlays.map(async (overlay) => {
+      if (overlay.type !== 'sticker') return;
+      const domImg = overlay.el.querySelector('img');
+      if (domImg?.complete && domImg.naturalWidth) return;
+      await loadStickerImage(overlay.name);
     }));
   }
 
-  function drawExportOverlays(ctx, card, layerW, layerH) {
-    if (!layerW || !layerH) return;
-    const scaleX = card.w / layerW;
-    const scaleY = card.h / layerH;
+  function getStickerDrawImage(overlay) {
+    const cached = stickerImageCache.get(overlay.name);
+    if (cached instanceof HTMLImageElement && cached.naturalWidth) return cached;
+    const domImg = overlay.el.querySelector('img');
+    if (domImg?.complete && domImg.naturalWidth) return domImg;
+    return null;
+  }
+
+  function drawExportOverlays(ctx, card, layout) {
+    if (!layout?.puzzleW || !layout?.puzzleH) return;
+    const scaleX = card.w / layout.puzzleW;
+    const scaleY = card.h / layout.puzzleH;
+    const puzzleX = layout.puzzleX || 0;
+    const puzzleY = layout.puzzleY || 0;
 
     for (const overlay of state.overlays) {
-      const x = card.x + overlay.x * scaleX;
-      const y = card.y + overlay.y * scaleY;
+      const relX = overlay.x - puzzleX;
+      const relY = overlay.y - puzzleY;
+      const x = card.x + relX * scaleX;
+      const y = card.y + relY * scaleY;
 
       ctx.save();
       if (overlay.rotation) {
@@ -3572,8 +3720,8 @@
       }
 
       if (overlay.type === 'sticker') {
-        const img = overlay.el.querySelector('img');
-        if (img && img.complete && img.naturalWidth) {
+        const img = getStickerDrawImage(overlay);
+        if (img) {
           ctx.drawImage(img, x, y, overlay.w * scaleX, overlay.h * scaleY);
         }
       } else {
@@ -3606,9 +3754,8 @@
   async function renderStoryExport() {
     await document.fonts.ready;
     const assembled = state.assembledCanvas || flattenPuzzle();
-    const layer = $('#overlay-layer');
-    const layerW = layer.clientWidth || assembled.width;
-    const layerH = layer.clientHeight || assembled.height;
+    refreshDecorateLayout();
+    const layout = state.decorateLayout;
 
     await ensureStickerImagesReady();
 
@@ -3624,13 +3771,12 @@
     } else {
       const bg = await getExportBgImage();
       drawCoverImage(ctx, bg, W, H);
-      drawExportBgOverlay(ctx, W, H);
     }
 
     const card = getExportCardRect(W, H);
     drawExportCardShadow(ctx, card);
     drawExportPuzzleCard(ctx, assembled, card);
-    drawExportOverlays(ctx, card, layerW, layerH);
+    drawExportOverlays(ctx, card, layout);
     drawExportCredit(ctx, W, H);
 
     return canvas;
@@ -3669,8 +3815,7 @@
 
   async function shareStory() {
     trackEvent('share_clicked');
-    closeSheet();
-    closeStylePanel();
+    closeDecorateSheets();
     closeTextModal();
     deselectAllOverlays();
     try {
@@ -3704,7 +3849,12 @@
     if (state.screen === 'play' && state.image) {
       initPuzzle({ preserveProgress: true });
     }
+    if (state.screen === 'decorate' && state.decorateReady) {
+      refreshDecorateLayout();
+    }
   });
+
+  initDecorateLayoutObserver();
 
   /* ============================================================
      DEV: expose generator for standalone testing
