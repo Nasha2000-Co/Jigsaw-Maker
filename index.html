@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607142327">
+  <meta name="app-version" content="202607142344">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -997,9 +997,18 @@
 
     .decorate-canvas-wrap.eyedropper-mode {
       cursor: crosshair;
+      pointer-events: auto;
     }
 
-    .decorate-canvas-wrap.eyedropper-mode .overlay-layer {
+    .decorate-stage.eyedropper-mode {
+      cursor: crosshair;
+    }
+
+    .decorate-stage.eyedropper-mode .overlay-item {
+      pointer-events: none !important;
+    }
+
+    .decorate-stage.eyedropper-mode #overlay-layer {
       pointer-events: none;
     }
 
@@ -1438,7 +1447,7 @@
           <div class="decorate-canvas-wrap" id="decorate-wrap">
             <canvas id="decorate-canvas"></canvas>
             <div class="eyedropper-hint" id="eyedropper-hint" hidden>
-              <span>Tap photo to pick a color</span>
+              <span>Tap photo or background to pick a color</span>
             </div>
           </div>
           <div class="overlay-layer" id="overlay-layer"></div>
@@ -1880,6 +1889,8 @@
     return assetUrl(`${STICKER_PATH}/${encodeURIComponent(name)}${STICKER_EXT}`);
   }
 
+  const EYEDROPPER_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l8-8"/><path d="M14 4l6 6"/><path d="M9.5 8.5l2 2"/><path d="M16 3l5 5-9 9-5-5 9-9z"/><path d="M20 7l-2 2"/></svg>`;
+
   const STICKERS = [
     '01_black_polka_dot_bow',
     '01_brown_pink_stripe_button',
@@ -2200,6 +2211,7 @@
     bgEl.style.backgroundPosition = 'center';
     bgEl.style.backgroundRepeat = 'no-repeat';
     bgEl.style.backgroundAttachment = 'scroll';
+    invalidateBgSampleCanvas();
   }
 
   function applyExportBgPreview() {
@@ -2214,6 +2226,7 @@
       bgEl.style.backgroundColor = state.exportBgColor;
       bgEl.style.background = state.exportBgColor;
       invalidateExportWarm();
+      invalidateBgSampleCanvas();
       scheduleExportWarm();
       return;
     }
@@ -2227,6 +2240,7 @@
     bgEl.style.backgroundAttachment = 'scroll';
     warmExportBgImage(path);
     invalidateExportWarm();
+    invalidateBgSampleCanvas();
     scheduleExportWarm();
   }
 
@@ -2246,6 +2260,7 @@
     state.exportBgImageId = id;
     syncExportBgUI();
     applyExportBgPreview();
+    invalidateBgSampleCanvas();
   }
 
   function applyExportBgColor(hex) {
@@ -2255,6 +2270,7 @@
     }
     syncExportBgUI();
     applyExportBgPreview();
+    invalidateBgSampleCanvas();
   }
 
   function syncExportBgUI() {
@@ -2307,6 +2323,7 @@
           <span class="color-swatch-plus">+</span>
         </button>
         <input type="color" class="color-input-hidden" data-export-bg-color-input value="#f5ebe0" tabindex="-1" aria-hidden="true">
+        <button type="button" class="color-tool-btn eyedropper-btn" data-export-bg-eyedropper title="Pick color from photo">${EYEDROPPER_ICON}</button>
       </div>
     `;
 
@@ -2323,6 +2340,10 @@
       }
       if (e.target.closest('[data-export-bg-custom]')) {
         swatchRow.querySelector('[data-export-bg-color-input]')?.click();
+        return;
+      }
+      if (e.target.closest('[data-export-bg-eyedropper]')) {
+        startCanvasEyedropper({ type: 'exportBg' });
       }
     });
 
@@ -2406,6 +2427,7 @@
         <span class="color-swatch-plus">+</span>
       </button>
       <input type="color" class="color-input-hidden" data-stroke-color-input value="#ffffff" tabindex="-1" aria-hidden="true">
+      <button type="button" class="color-tool-btn eyedropper-btn" data-stroke-eyedropper title="Pick stroke color from photo">${EYEDROPPER_ICON}</button>
     `;
 
     row.addEventListener('click', (e) => {
@@ -2416,6 +2438,10 @@
       }
       if (e.target.closest('[data-stroke-custom]')) {
         row.querySelector('[data-stroke-color-input]')?.click();
+        return;
+      }
+      if (e.target.closest('[data-stroke-eyedropper]')) {
+        startCanvasEyedropper({ type: 'stroke' });
       }
     });
 
@@ -3093,22 +3119,86 @@
     return '#' + [match[1], match[2], match[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('');
   }
 
-  const EYEDROPPER_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l8-8"/><path d="M14 4l6 6"/><path d="M9.5 8.5l2 2"/><path d="M16 3l5 5-9 9-5-5 9-9z"/><path d="M20 7l-2 2"/></svg>`;
-
   let eyedropperContext = null;
   let eyedropperActive = false;
   let eyedropperModalWasOpen = false;
+  const bgSampleState = { canvas: null, key: '' };
 
-  function sampleCanvasColor(clientX, clientY) {
+  function isTouchLikeDevice() {
+    return window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  }
+
+  function invalidateBgSampleCanvas() {
+    bgSampleState.canvas = null;
+    bgSampleState.key = '';
+  }
+
+  function pixelToHex(r, g, b) {
+    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  function readCanvasPixel(canvas, x, y) {
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
+    const [r, g, b, a] = canvas.getContext('2d', { willReadFrequently: true }).getImageData(x, y, 1, 1).data;
+    if (a < 8) return null;
+    return pixelToHex(r, g, b);
+  }
+
+  async function ensureBgSampleCanvas() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const key = `${state.exportBgMode}|${state.exportBgColor}|${state.exportBgImageId}|${w}|${h}`;
+    if (bgSampleState.canvas && bgSampleState.key === key) {
+      return bgSampleState.canvas;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (state.exportBgMode === 'color') {
+      ctx.fillStyle = state.exportBgColor;
+      ctx.fillRect(0, 0, w, h);
+    } else {
+      try {
+        const img = await getExportBgImage();
+        drawCoverImage(ctx, img, w, h);
+      } catch {
+        ctx.fillStyle = state.exportBgColor || '#f5ebe0';
+        ctx.fillRect(0, 0, w, h);
+      }
+    }
+
+    bgSampleState.canvas = canvas;
+    bgSampleState.key = key;
+    return canvas;
+  }
+
+  function samplePuzzleCanvasColor(clientX, clientY) {
     const canvas = decorateCanvas;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      return null;
+    }
     const x = Math.floor((clientX - rect.left) * (canvas.width / rect.width));
     const y = Math.floor((clientY - rect.top) * (canvas.height / rect.height));
-    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
-    const [r, g, b, a] = canvas.getContext('2d').getImageData(x, y, 1, 1).data;
-    if (a === 0) return null;
-    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+    return readCanvasPixel(canvas, x, y);
+  }
+
+  async function sampleColorAtPoint(clientX, clientY) {
+    const fromPuzzle = samplePuzzleCanvasColor(clientX, clientY);
+    if (fromPuzzle) return fromPuzzle;
+
+    const bgCanvas = await ensureBgSampleCanvas();
+    return readCanvasPixel(bgCanvas, Math.floor(clientX), Math.floor(clientY));
+  }
+
+  function clearEyedropperActiveButtons() {
+    document.querySelectorAll(
+      '[data-eyedropper], [data-bg-eyedropper], [data-export-bg-eyedropper], [data-stroke-eyedropper]'
+    ).forEach((btn) => btn.classList.remove('active'));
   }
 
   function applyToolbarColor(toolbarEl, getStyle, setStyle, color) {
@@ -3134,17 +3224,23 @@
 
   function endCanvasEyedropper(color) {
     const decorateWrap = $('#decorate-wrap');
+    const decorateStage = $('#decorate-stage');
     const eyedropperHint = $('#eyedropper-hint');
     decorateWrap.classList.remove('eyedropper-mode');
+    decorateStage?.classList.remove('eyedropper-mode');
     eyedropperHint.hidden = true;
     eyedropperActive = false;
 
     if (color && eyedropperContext) {
-      const { getStyle, setStyle, toolbarEl, target } = eyedropperContext;
-      if (target === 'bg') {
-        applyToolbarBgColor(toolbarEl, getStyle, setStyle, color);
+      const ctx = eyedropperContext;
+      if (ctx.type === 'exportBg') {
+        applyExportBgColor(color);
+      } else if (ctx.type === 'stroke') {
+        applyStrokeColor(color);
+      } else if (ctx.target === 'bg') {
+        applyToolbarBgColor(ctx.toolbarEl, ctx.getStyle, ctx.setStyle, color);
       } else {
-        applyToolbarColor(toolbarEl, getStyle, setStyle, color);
+        applyToolbarColor(ctx.toolbarEl, ctx.getStyle, ctx.setStyle, color);
       }
     }
 
@@ -3155,39 +3251,63 @@
 
     eyedropperContext = null;
     eyedropperModalWasOpen = false;
-    document.querySelectorAll('[data-eyedropper], [data-bg-eyedropper]').forEach((btn) => btn.classList.remove('active'));
+    clearEyedropperActiveButtons();
   }
 
-  async function startEyedropper(getStyle, setStyle, toolbarEl, target = 'color') {
-    eyedropperContext = { getStyle, setStyle, toolbarEl, target };
-    const pickerBtn = toolbarEl.querySelector(target === 'bg' ? '[data-bg-eyedropper]' : '[data-eyedropper]');
-    pickerBtn?.classList.add('active');
+  function beginCanvasEyedropperMode(activeBtn) {
+    eyedropperActive = true;
+    eyedropperModalWasOpen = textModal.classList.contains('open');
+    if (eyedropperModalWasOpen) textModal.classList.remove('open');
+    $('#decorate-wrap')?.classList.add('eyedropper-mode');
+    $('#decorate-stage')?.classList.add('eyedropper-mode');
+    $('#eyedropper-hint').hidden = false;
+    activeBtn?.classList.add('active');
+  }
 
-    if (window.EyeDropper) {
+  async function startCanvasEyedropper(context) {
+    eyedropperContext = context;
+    clearEyedropperActiveButtons();
+
+    const activeBtn = context.activeBtn
+      || (context.type === 'exportBg' ? document.querySelector('[data-export-bg-eyedropper]')
+      : context.type === 'stroke' ? document.querySelector('[data-stroke-eyedropper]')
+      : context.toolbarEl?.querySelector(context.target === 'bg' ? '[data-bg-eyedropper]' : '[data-eyedropper]'));
+
+    if (window.EyeDropper && !isTouchLikeDevice()) {
       try {
         const result = await new EyeDropper().open();
-        if (target === 'bg') {
-          applyToolbarBgColor(toolbarEl, getStyle, setStyle, result.sRGBHex);
+        if (context.type === 'exportBg') {
+          applyExportBgColor(result.sRGBHex);
+        } else if (context.type === 'stroke') {
+          applyStrokeColor(result.sRGBHex);
+        } else if (context.target === 'bg') {
+          applyToolbarBgColor(context.toolbarEl, context.getStyle, context.setStyle, result.sRGBHex);
         } else {
-          applyToolbarColor(toolbarEl, getStyle, setStyle, result.sRGBHex);
+          applyToolbarColor(context.toolbarEl, context.getStyle, context.setStyle, result.sRGBHex);
         }
         eyedropperContext = null;
-        pickerBtn?.classList.remove('active');
         return;
       } catch (err) {
         if (err && err.name === 'AbortError') {
           eyedropperContext = null;
-          pickerBtn?.classList.remove('active');
           return;
         }
       }
     }
 
-    eyedropperActive = true;
-    eyedropperModalWasOpen = textModal.classList.contains('open');
-    if (eyedropperModalWasOpen) textModal.classList.remove('open');
-    $('#decorate-wrap').classList.add('eyedropper-mode');
-    $('#eyedropper-hint').hidden = false;
+    await ensureBgSampleCanvas();
+    beginCanvasEyedropperMode(activeBtn);
+  }
+
+  function startEyedropper(getStyle, setStyle, toolbarEl, target = 'color') {
+    startCanvasEyedropper({ getStyle, setStyle, toolbarEl, target });
+  }
+
+  function handleEyedropperPick(clientX, clientY) {
+    if (!eyedropperActive) return;
+    sampleColorAtPoint(clientX, clientY).then((color) => {
+      if (color) endCanvasEyedropper(color);
+    });
   }
 
   function createTextStyleToolbarHTML() {
@@ -3323,6 +3443,7 @@
         return;
       }
       if (e.target.closest('[data-eyedropper]')) {
+        e.preventDefault();
         startEyedropper(getStyle, setStyle, toolbarEl, 'color');
         return;
       }
@@ -3349,6 +3470,7 @@
         return;
       }
       if (e.target.closest('[data-bg-eyedropper]')) {
+        e.preventDefault();
         startEyedropper(getStyle, setStyle, toolbarEl, 'bg');
       }
     });
@@ -3441,12 +3563,20 @@
     scheduleExportWarm();
   });
 
+  const decorateStage = $('#decorate-stage');
+
+  decorateStage?.addEventListener('pointerup', (e) => {
+    if (!eyedropperActive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleEyedropperPick(e.clientX, e.clientY);
+  }, true);
+
   $('#decorate-wrap').addEventListener('click', (e) => {
     if (eyedropperActive) {
       e.preventDefault();
       e.stopPropagation();
-      const color = sampleCanvasColor(e.clientX, e.clientY);
-      if (color) endCanvasEyedropper(color);
+      handleEyedropperPick(e.clientX, e.clientY);
       return;
     }
     if (!e.target.closest('.overlay-item')) {
@@ -3454,23 +3584,15 @@
     }
   });
 
-  $('#decorate-wrap').addEventListener('touchend', (e) => {
-    if (!eyedropperActive) return;
-    e.preventDefault();
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const color = sampleCanvasColor(touch.clientX, touch.clientY);
-    if (color) endCanvasEyedropper(color);
-  }, { passive: false });
-
   screens.decorate.addEventListener('click', (e) => {
+    if (eyedropperActive) return;
     if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
 
   screens.decorate.addEventListener('touchend', (e) => {
-    if (overlayDrag) return;
+    if (eyedropperActive || overlayDrag) return;
     if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
