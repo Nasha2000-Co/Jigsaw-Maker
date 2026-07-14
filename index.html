@@ -195,11 +195,23 @@
       flex-shrink: 0;
     }
 
+    #screen-decorate .tool-row,
+    #screen-decorate .btn-stack {
+      position: relative;
+      z-index: 20;
+      pointer-events: auto;
+    }
+
     #screen-decorate .btn-stack {
       gap: 8px;
       margin-top: 6px;
       margin-bottom: 0;
       flex-shrink: 0;
+    }
+
+    #screen-decorate .btn-stack .btn.is-busy {
+      opacity: 0.65;
+      pointer-events: none;
     }
 
     .app:has(#screen-play.active) header h1 {
@@ -265,12 +277,14 @@
     }
 
     #screen-upload .upload-card {
-      height: min(300px, calc((100vw - 32px) * 4 / 3), 40dvh);
+      max-height: min(400px, 48dvh);
     }
 
     .upload-card {
       width: min(300px, calc(100vw - 32px));
-      height: min(400px, calc((100vw - 32px) * 4 / 3));
+      aspect-ratio: 3 / 4;
+      height: auto;
+      max-height: min(400px, 52dvh);
       display: block;
       padding: 22px;
       background: rgba(255, 255, 255, 0.6);
@@ -512,6 +526,28 @@
       justify-self: start;
     }
 
+    .panel-header .sheet-close-btn {
+      grid-column: 1;
+      justify-self: start;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+    }
+
+    .bottom-sheet .panel-header {
+      grid-template-columns: 32px 1fr 32px;
+      margin-bottom: 20px;
+    }
+
+    .bottom-sheet .panel-header h3 {
+      grid-column: 2;
+    }
+
+    .bottom-sheet .panel-header .sheet-close-btn {
+      grid-column: 3;
+      justify-self: end;
+    }
+
     .grid-hint {
       font-size: 11px;
       color: #666;
@@ -577,9 +613,9 @@
 
     #board-canvas {
       border-radius: 14px;
-      max-width: 100%;
       touch-action: none;
       box-shadow: var(--puzzle-card-shadow);
+      /* Size set in JS — avoid max-width alone (breaks 3:4 aspect). */
     }
 
     .tray-wrap {
@@ -715,28 +751,34 @@
       margin-bottom: 8px;
     }
 
-    .bg-mode-pills {
+    .color-swatch-image {
+      padding: 0;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .color-swatch-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      display: block;
+    }
+
+    .export-bg-images {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
-    .bg-mode-pill {
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 500;
-      padding: 6px 14px;
-      border-radius: 999px;
-      border: 1.5px solid var(--black);
-      background: rgba(255, 255, 255, 0.6);
-      color: var(--black);
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-    }
-
-    .bg-mode-pill.active {
-      background: var(--black);
-      color: #fff;
+    .export-bg-colors {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
 
     .bottom-sheet .color-swatches {
@@ -745,8 +787,6 @@
       gap: 8px;
       align-items: center;
     }
-
-    .export-bg-color-row[hidden] { display: none !important; }
 
     /* Overlay layers — full decorate stage, not puzzle canvas only */
     .overlay-layer {
@@ -788,6 +828,30 @@
 
     .overlay-item.selected .delete-btn,
     .overlay-item.show-delete .delete-btn { display: flex; }
+
+    .overlay-item.text-item .edit-btn {
+      position: absolute;
+      bottom: -14px;
+      left: -8px;
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: none;
+      background: var(--black);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 5;
+    }
+
+    .overlay-item.text-item.selected .edit-btn { display: flex; }
 
     .overlay-item img {
       width: 100%;
@@ -1091,9 +1155,13 @@
       padding: 12px 24px 32px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      pointer-events: none;
     }
 
-    .bottom-sheet.open { transform: translateY(0); }
+    .bottom-sheet.open {
+      transform: translateY(0);
+      pointer-events: auto;
+    }
 
     .bottom-sheet-stickers {
       max-height: 58vh;
@@ -1125,10 +1193,6 @@
       letter-spacing: 0.25em;
       text-indent: 0.25em;
       font-weight: 500;
-    }
-
-    .bottom-sheet .panel-header {
-      margin-bottom: 20px;
     }
 
     .sticker-grid {
@@ -1211,14 +1275,26 @@
     }
 
     .text-modal-inner .panel-header {
+      grid-template-columns: 1fr 32px;
       margin-bottom: 12px;
     }
 
     .text-modal-inner .panel-header h3 {
+      grid-column: 1;
       font-family: var(--serif);
       font-size: 18px;
       letter-spacing: 0;
       text-indent: 0;
+      text-align: center;
+      margin: 0;
+    }
+
+    .text-modal-inner .panel-header .text-modal-close {
+      grid-column: 2;
+      justify-self: end;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
     }
 
     .text-modal-inner input {
@@ -1342,8 +1418,8 @@
           </button>
         </div>
         <div class="btn-stack">
-          <button class="btn btn-primary" id="btn-share">Share to Story</button>
-          <button class="btn btn-secondary" id="btn-save-image">Save image</button>
+          <button type="button" class="btn btn-primary" id="btn-share">Share to Story</button>
+          <button type="button" class="btn btn-secondary" id="btn-save-image">Save image</button>
         </div>
       </section>
     </main>
@@ -1372,26 +1448,20 @@
   <div class="bottom-sheet bottom-sheet-stickers" id="bottom-sheet">
     <div class="sheet-handle"></div>
     <div class="panel-header">
-      <button type="button" class="btn-back" id="sheet-back" aria-label="Close stickers">←</button>
       <h3>STICKERS</h3>
+      <button type="button" class="overlay-delete-bar-btn sheet-close-btn" id="sheet-back" aria-label="Close stickers">✕</button>
     </div>
     <div class="sticker-grid" id="sticker-grid"></div>
   </div>
   <div class="bottom-sheet bottom-sheet-compact" id="style-sheet">
     <div class="sheet-handle"></div>
     <div class="panel-header">
-      <button type="button" class="btn-back" id="style-sheet-back" aria-label="Close background and stroke options">←</button>
       <h3>BACKGROUND &amp; STROKE</h3>
+      <button type="button" class="overlay-delete-bar-btn sheet-close-btn" id="style-sheet-back" aria-label="Close background and stroke options">✕</button>
     </div>
     <div class="style-panel-section">
       <span class="style-panel-label">Background</span>
-      <div class="bg-mode-pills" id="export-bg-mode-pills">
-        <button type="button" class="bg-mode-pill active" data-export-bg-mode="image">Photo</button>
-        <button type="button" class="bg-mode-pill" data-export-bg-mode="color">Color</button>
-      </div>
-      <div class="export-bg-color-row" id="export-bg-color-row" hidden>
-        <div class="color-swatches" id="export-bg-color-swatches"></div>
-      </div>
+      <div class="color-swatches" id="export-bg-color-swatches"></div>
     </div>
     <div class="style-panel-section">
       <span class="style-panel-label">Stroke jigsaw color</span>
@@ -1401,8 +1471,8 @@
   <div class="bottom-sheet bottom-sheet-compact" id="text-style-sheet">
     <div class="sheet-handle"></div>
     <div class="panel-header">
-      <button type="button" class="btn-back" id="text-style-sheet-back" aria-label="Close text styles">←</button>
       <h3>TEXT STYLE</h3>
+      <button type="button" class="overlay-delete-bar-btn sheet-close-btn" id="text-style-sheet-back" aria-label="Close text styles">✕</button>
     </div>
     <div class="text-style-toolbar" id="inline-text-style"></div>
   </div>
@@ -1411,8 +1481,8 @@
   <div class="text-modal" id="text-modal">
     <div class="text-modal-inner">
       <div class="panel-header">
-        <button type="button" class="btn-back" id="text-modal-back" aria-label="Close text editor">←</button>
         <h3 id="text-modal-title">Add Text</h3>
+        <button type="button" class="overlay-delete-bar-btn text-modal-close" id="text-modal-close" aria-label="Close text editor">✕</button>
       </div>
       <input type="text" id="text-input" class="text-preview" placeholder="Type something..." maxlength="40">
       <div class="text-style-toolbar" id="modal-text-style"></div>
@@ -1744,6 +1814,7 @@
     assembledCanvas: null,
     strokeColor: '#ffffff',
     exportBgMode: 'image',
+    exportBgImageId: 'default',
     exportBgColor: '#f5ebe0',
     decorateReady: false,
     decorateLayout: null,
@@ -1909,8 +1980,10 @@
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[name].classList.add('active');
     if (name === 'decorate') {
+      closeDecorateSheets();
       applyExportBgPreview();
     } else {
+      closeDecorateSheets();
       restoreAppBg();
     }
   }
@@ -1958,15 +2031,15 @@
     });
   }
 
-  fileInput.addEventListener('change', (e) => {
+  fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
     state.imageUrl = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      state.image = img;
-      uploadPreview.src = state.imageUrl;
+    img.onload = async () => {
+      state.image = await resizeImageToPuzzleSize(img);
+      uploadPreview.src = state.image.src;
       uploadLabel.classList.add('has-image');
       btnStart.disabled = false;
       trackEvent('photo_uploaded');
@@ -1974,11 +2047,8 @@
     img.src = state.imageUrl;
   });
 
-  btnStart.addEventListener('click', async () => {
+  btnStart.addEventListener('click', () => {
     if (!state.image) return;
-    btnStart.disabled = true;
-    state.image = await resizeImageToPuzzleSize(state.image);
-    btnStart.disabled = false;
     showScreen('play');
     initPuzzle();
     trackEvent('puzzle_started', { grid_choice: state.gridKey });
@@ -2016,13 +2086,41 @@
     { id: 'charcoal', value: '#2a2a2a' },
   ];
 
-  const APP_BG_IMAGE = "url('assets/jm-bg.png') center/cover no-repeat fixed";
+  const EXPORT_BG_PATH = 'assets/Bg';
+  const EXPORT_BG_IMAGES = [
+    { id: 'default', file: 'jm-bg.png', title: 'Default photo', root: 'assets' },
+    { id: 'blue-sky-hill', file: 'blue-sky-green-hill-white-flowers.jpg', title: 'Blue sky hill' },
+    { id: 'green-meadow', file: 'green-meadow-grass-white-flowers.jpg', title: 'Green meadow' },
+    { id: 'white-rabbit', file: 'painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg', title: 'Rabbit field' },
+    { id: 'pastel-teal', file: 'pastel-teal-sky-pink-flower-field.jpg', title: 'Pastel flower field' },
+    { id: 'yellow-clover', file: 'watercolor-yellow-sky-green-clover-hill.jpg', title: 'Yellow clover hill' },
+    { id: 'teal-flower', file: 'watercolor-teal-sky-yellow-flower-hill.jpg', title: 'Teal flower hill' },
+  ];
+  const exportBgImageCache = new Map();
+
+  function exportBgImageSrc(entry) {
+    const base = entry.root ? `${entry.root}/${entry.file}` : `${EXPORT_BG_PATH}/${entry.file}`;
+    return base;
+  }
+
+  function getExportBgImageEntry(id = state.exportBgImageId) {
+    return EXPORT_BG_IMAGES.find((entry) => entry.id === id) || EXPORT_BG_IMAGES[0];
+  }
+
+  function getExportBgImagePath(id = state.exportBgImageId) {
+    return exportBgImageSrc(getExportBgImageEntry(id));
+  }
 
   function restoreAppBg() {
     const bgEl = $('.bg');
     if (!bgEl) return;
     bgEl.style.background = '';
+    bgEl.style.backgroundColor = '';
     bgEl.style.backgroundImage = '';
+    bgEl.style.backgroundSize = '';
+    bgEl.style.backgroundPosition = '';
+    bgEl.style.backgroundRepeat = '';
+    bgEl.style.backgroundAttachment = '';
   }
 
   function applyExportBgPreview() {
@@ -2030,19 +2128,43 @@
     if (!bgEl) return;
     if (state.exportBgMode === 'color') {
       bgEl.style.backgroundImage = 'none';
+      bgEl.style.backgroundSize = '';
+      bgEl.style.backgroundPosition = '';
+      bgEl.style.backgroundRepeat = '';
+      bgEl.style.backgroundAttachment = '';
+      bgEl.style.backgroundColor = state.exportBgColor;
       bgEl.style.background = state.exportBgColor;
-    } else {
-      bgEl.style.backgroundImage = APP_BG_IMAGE;
-      bgEl.style.background = '';
+      invalidateExportWarm();
+      scheduleExportWarm();
+      return;
     }
+
+    const path = getExportBgImagePath();
+    bgEl.style.backgroundColor = 'transparent';
+    bgEl.style.backgroundImage = `url("${path}")`;
+    bgEl.style.backgroundSize = 'cover';
+    bgEl.style.backgroundPosition = 'center';
+    bgEl.style.backgroundRepeat = 'no-repeat';
+    bgEl.style.backgroundAttachment = 'fixed';
+    warmExportBgImage(path);
+    invalidateExportWarm();
+    scheduleExportWarm();
+  }
+
+  function warmExportBgImage(path) {
+    if (exportBgImageCache.has(path)) return;
+    loadExportImage(path).then((img) => {
+      exportBgImageCache.set(path, img);
+    }).catch(() => {});
   }
 
   function isPresetExportBgColor(hex) {
     return EXPORT_BG_COLORS.some((c) => c.value.toLowerCase() === normalizeHexColor(hex));
   }
 
-  function applyExportBgMode(mode) {
-    state.exportBgMode = mode === 'color' ? 'color' : 'image';
+  function applyExportBgImage(id) {
+    state.exportBgMode = 'image';
+    state.exportBgImageId = id;
     syncExportBgUI();
     applyExportBgPreview();
   }
@@ -2057,52 +2179,64 @@
   }
 
   function syncExportBgUI() {
-    const modeRow = $('#export-bg-mode-pills');
-    const colorRow = $('#export-bg-color-row');
     const swatchRow = $('#export-bg-color-swatches');
-    if (!modeRow) return;
+    if (!swatchRow) return;
 
-    modeRow.querySelectorAll('[data-export-bg-mode]').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.exportBgMode === state.exportBgMode);
+    swatchRow.querySelectorAll('[data-export-bg-image]').forEach((btn) => {
+      btn.classList.toggle(
+        'active',
+        state.exportBgMode === 'image' && btn.dataset.exportBgImage === state.exportBgImageId
+      );
     });
 
-    if (colorRow) colorRow.hidden = state.exportBgMode !== 'color';
-
-    if (swatchRow) {
-      const color = normalizeHexColor(state.exportBgColor);
-      const isCustom = !isPresetExportBgColor(color);
-      swatchRow.querySelectorAll('[data-export-bg-color]').forEach((btn) => {
-        btn.classList.toggle('active', normalizeHexColor(btn.dataset.exportBgColor) === color);
-      });
-      const customBtn = swatchRow.querySelector('[data-export-bg-custom]');
-      if (customBtn) {
-        customBtn.classList.toggle('active', isCustom);
-        customBtn.style.background = isCustom ? color : '';
-      }
-      const colorInput = swatchRow.querySelector('[data-export-bg-color-input]');
-      if (colorInput) colorInput.value = color;
+    const color = normalizeHexColor(state.exportBgColor);
+    const isCustom = !isPresetExportBgColor(color);
+    swatchRow.querySelectorAll('[data-export-bg-color]').forEach((btn) => {
+      btn.classList.toggle(
+        'active',
+        state.exportBgMode === 'color' && normalizeHexColor(btn.dataset.exportBgColor) === color
+      );
+    });
+    const customBtn = swatchRow.querySelector('[data-export-bg-custom]');
+    if (customBtn) {
+      customBtn.classList.toggle('active', state.exportBgMode === 'color' && isCustom);
+      customBtn.style.background = state.exportBgMode === 'color' && isCustom ? color : '';
     }
+    const colorInput = swatchRow.querySelector('[data-export-bg-color-input]');
+    if (colorInput) colorInput.value = color;
   }
 
   function initExportBgUI() {
     const swatchRow = $('#export-bg-color-swatches');
-    const modeRow = $('#export-bg-mode-pills');
     if (!swatchRow || swatchRow.dataset.ready) return;
     swatchRow.dataset.ready = '1';
 
-    const swatches = EXPORT_BG_COLORS.map((c) =>
+    const colorSwatches = EXPORT_BG_COLORS.map((c) =>
       `<button type="button" class="color-swatch" data-export-bg-color="${c.value}" data-export-bg-id="${c.id}" style="background:${c.value};${c.id === 'white' ? 'box-shadow:inset 0 0 0 1px rgba(0,0,0,0.12)' : ''}" title="${c.id}"></button>`
     ).join('');
 
+    const imageSwatches = EXPORT_BG_IMAGES.map((entry) => {
+      const src = exportBgImageSrc(entry);
+      return `<button type="button" class="color-swatch color-swatch-image" data-export-bg-image="${entry.id}" title="${entry.title}"><img src="${src}" alt="" loading="lazy" decoding="async"></button>`;
+    }).join('');
+
     swatchRow.innerHTML = `
-      ${swatches}
-      <button type="button" class="color-swatch color-swatch-custom" data-export-bg-custom title="Custom background color">
-        <span class="color-swatch-plus">+</span>
-      </button>
-      <input type="color" class="color-input-hidden" data-export-bg-color-input value="#f5ebe0" tabindex="-1" aria-hidden="true">
+      <div class="export-bg-images">${imageSwatches}</div>
+      <div class="export-bg-colors">
+        ${colorSwatches}
+        <button type="button" class="color-swatch color-swatch-custom" data-export-bg-custom title="Custom background color">
+          <span class="color-swatch-plus">+</span>
+        </button>
+        <input type="color" class="color-input-hidden" data-export-bg-color-input value="#f5ebe0" tabindex="-1" aria-hidden="true">
+      </div>
     `;
 
     swatchRow.addEventListener('click', (e) => {
+      const imageSwatch = e.target.closest('[data-export-bg-image]');
+      if (imageSwatch) {
+        applyExportBgImage(imageSwatch.dataset.exportBgImage);
+        return;
+      }
       const swatch = e.target.closest('[data-export-bg-color]');
       if (swatch) {
         applyExportBgColor(swatch.dataset.exportBgColor);
@@ -2115,10 +2249,6 @@
 
     swatchRow.querySelector('[data-export-bg-color-input]')?.addEventListener('input', (e) => {
       applyExportBgColor(e.target.value);
-    });
-
-    modeRow?.querySelectorAll('[data-export-bg-mode]').forEach((btn) => {
-      btn.addEventListener('click', () => applyExportBgMode(btn.dataset.exportBgMode));
     });
 
     syncExportBgUI();
@@ -2623,21 +2753,27 @@
      FLATTEN PUZZLE → DECORATE
      ============================================================ */
   function flattenPuzzle() {
-    const { boardW, boardH, rows, cols, cellW, cellH } = state;
+    const { rows, cols, boardW, boardH } = state;
     const img = state.image;
+    const nativeW = PUZZLE_WIDTH;
+    const nativeH = PUZZLE_HEIGHT;
+    const scaleX = nativeW / boardW;
+    const scaleY = nativeH / boardH;
+    const nativeCellW = nativeW / cols;
+    const nativeCellH = nativeH / rows;
     const canvas = document.createElement('canvas');
-    canvas.width = boardW;
-    canvas.height = boardH;
+    canvas.width = nativeW;
+    canvas.height = nativeH;
     const ctx = canvas.getContext('2d');
     const r = 14;
 
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(0, 0, boardW, boardH, r);
+    ctx.roundRect(0, 0, nativeW, nativeH, r);
     ctx.clip();
 
     if (img && img.width) {
-      ctx.drawImage(img, 0, 0, boardW, boardH);
+      ctx.drawImage(img, 0, 0, nativeW, nativeH);
     }
 
     for (let row = 0; row < rows; row++) {
@@ -2646,10 +2782,10 @@
         if (piece) {
           ctx.drawImage(
             piece.canvas,
-            piece.drawX,
-            piece.drawY,
-            piece.drawW,
-            piece.drawH
+            piece.drawX * scaleX,
+            piece.drawY * scaleY,
+            piece.drawW * scaleX,
+            piece.drawH * scaleY
           );
         }
       }
@@ -2657,7 +2793,7 @@
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        HeadbreakerGen.strokePiecePath(ctx, row, col, col * cellW, row * cellH, cellW, cellH);
+        HeadbreakerGen.strokePiecePath(ctx, row, col, col * nativeCellW, row * nativeCellH, nativeCellW, nativeCellH);
       }
     }
 
@@ -2670,18 +2806,20 @@
    * Single source of truth for decorate puzzle display size.
    * Always scales uniformly to fit the stage — never stretch width/height independently.
    */
-  function layoutDecoratePuzzle(flat) {
+  function layoutDecoratePuzzle(flat = state.assembledCanvas) {
     const stage = $('#decorate-stage');
-    const stageW = Math.max(1, stage?.clientWidth || Math.min(300, window.innerWidth - 40));
+    const stageW = Math.max(1, stage?.clientWidth || Math.min(PUZZLE_WIDTH, window.innerWidth - 40));
     const stageH = Math.max(1, stage?.clientHeight || 200);
     const pad = 8;
-    const maxW = Math.min(300, stageW - pad * 2, window.innerWidth - 40);
+    const srcW = PUZZLE_WIDTH;
+    const srcH = PUZZLE_HEIGHT;
+    const maxW = Math.min(PUZZLE_WIDTH, stageW - pad * 2, window.innerWidth - 40);
     const maxH = Math.max(80, stageH - pad * 2);
-    const widthScale = maxW / flat.width;
-    const heightScale = maxH / flat.height;
+    const widthScale = maxW / srcW;
+    const heightScale = maxH / srcH;
     const scale = Math.min(widthScale, heightScale, 1);
-    const puzzleW = flat.width * scale;
-    const puzzleH = flat.height * scale;
+    const puzzleW = srcW * scale;
+    const puzzleH = srcH * scale;
     return {
       stageW,
       stageH,
@@ -2698,8 +2836,8 @@
     const layout = layoutDecoratePuzzle(flat);
     decorateCanvas.style.width = `${layout.puzzleW}px`;
     decorateCanvas.style.height = `${layout.puzzleH}px`;
-    decorateCanvas.style.aspectRatio = `${flat.width} / ${flat.height}`;
-    state.decorateLayout = { ...layout, sourceW: flat.width, sourceH: flat.height };
+    decorateCanvas.style.aspectRatio = `${PUZZLE_WIDTH} / ${PUZZLE_HEIGHT}`;
+    state.decorateLayout = { ...layout, sourceW: PUZZLE_WIDTH, sourceH: PUZZLE_HEIGHT };
   }
 
   function initDecorateLayoutObserver() {
@@ -2715,9 +2853,9 @@
 
   function setupDecorateScreen({ resetOverlays = true } = {}) {
     const flat = flattenPuzzle();
-    decorateCanvas.width = flat.width;
-    decorateCanvas.height = flat.height;
-    decorateCanvas.getContext('2d').drawImage(flat, 0, 0);
+    decorateCanvas.width = PUZZLE_WIDTH;
+    decorateCanvas.height = PUZZLE_HEIGHT;
+    decorateCanvas.getContext('2d').drawImage(flat, 0, 0, PUZZLE_WIDTH, PUZZLE_HEIGHT);
     refreshDecorateLayout(flat);
 
     const overlayLayer = $('#overlay-layer');
@@ -2727,6 +2865,8 @@
       state.selectedOverlay = null;
       closeDecorateSheets();
     }
+    invalidateExportWarm();
+    scheduleExportWarm();
   }
 
   $('#btn-save-play').addEventListener('click', () => {
@@ -3103,7 +3243,9 @@
   }
 
   function syncDecorateSheetUi() {
-    document.body.classList.toggle('decorate-sheet-open', isDecorateSheetOpen());
+    const open = isDecorateSheetOpen();
+    if (!open) sheetBackdrop?.classList.remove('open');
+    document.body.classList.toggle('decorate-sheet-open', open);
   }
 
   function closeDecorateSheets() {
@@ -3168,6 +3310,8 @@
     applyTextOverlayStyle(state.selectedOverlay);
     syncTextStyleToolbarUI(inlineTextStyle, style);
     textStyleDraft = { ...style };
+    invalidateExportWarm();
+    scheduleExportWarm();
   });
 
   $('#decorate-wrap').addEventListener('click', (e) => {
@@ -3193,14 +3337,14 @@
   }, { passive: false });
 
   screens.decorate.addEventListener('click', (e) => {
-    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
 
   screens.decorate.addEventListener('touchend', (e) => {
     if (overlayDrag) return;
-    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
@@ -3214,21 +3358,17 @@
     state.overlays.forEach((o) => o.el.classList.remove('show-delete'));
   }
 
+  function closeTextStyleSheet() {
+    if (!decorateSheets.textStyle?.classList.contains('open')) return;
+    decorateSheets.textStyle.classList.remove('open');
+    if (!isDecorateSheetOpen()) sheetBackdrop?.classList.remove('open');
+    syncDecorateSheetUi();
+  }
+
   function showTextStyleBar(overlay) {
     if (!overlay || overlay.type !== 'text') {
-      if (decorateSheets.textStyle?.classList.contains('open')) {
-        decorateSheets.textStyle.classList.remove('open');
-        if (!isDecorateSheetOpen()) sheetBackdrop?.classList.remove('open');
-        syncDecorateSheetUi();
-      }
-      return;
+      closeTextStyleSheet();
     }
-    syncTextStyleToolbarUI(inlineTextStyle, {
-      color: overlay.color,
-      bgColor: overlay.bgColor,
-      fontKey: overlay.fontKey,
-    });
-    openDecorateSheet('textStyle');
   }
 
   const stickerGrid = $('#sticker-grid');
@@ -3322,6 +3462,8 @@
     state.overlays.push(overlay);
     selectOverlay(overlay);
     bindOverlayEvents(el, overlay);
+    invalidateExportWarm();
+    scheduleExportWarm();
   }
 
   function addText(text, style = textStyleDraft) {
@@ -3331,7 +3473,7 @@
     el.dataset.id = overlayId++;
     el.style.left = (layer.clientWidth / 2 - 40) + 'px';
     el.style.top = (layer.clientHeight / 2 - 12) + 'px';
-    el.innerHTML = `<span class="text-label"></span><button class="delete-btn" aria-label="Remove">✕</button><div class="rotate-handle">↻</div><div class="resize-handle"></div>`;
+    el.innerHTML = `<span class="text-label"></span><button type="button" class="edit-btn" aria-label="Edit text">Edit</button><button class="delete-btn" aria-label="Remove">✕</button><div class="rotate-handle">↻</div><div class="resize-handle"></div>`;
     layer.appendChild(el);
     el.querySelector('.text-label').textContent = text;
 
@@ -3347,6 +3489,8 @@
     state.overlays.push(overlay);
     selectOverlay(overlay);
     bindOverlayEvents(el, overlay);
+    invalidateExportWarm();
+    scheduleExportWarm();
   }
 
   function openTextModal(overlay = null) {
@@ -3397,6 +3541,8 @@
       state.selectedOverlay = null;
       showTextStyleBar(null);
     }
+    invalidateExportWarm();
+    scheduleExportWarm();
   }
 
   let longPressTimer = null;
@@ -3404,6 +3550,7 @@
 
   function bindOverlayEvents(el, overlay) {
     const deleteBtn = el.querySelector('.delete-btn');
+    const editBtn = el.querySelector('.edit-btn');
     const resizeHandle = el.querySelector('.resize-handle');
     const rotateHandle = el.querySelector('.rotate-handle');
 
@@ -3412,8 +3559,14 @@
       removeOverlay(overlay);
     });
 
+    editBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectOverlay(overlay);
+      openTextModal(overlay);
+    });
+
     function onStart(e) {
-      if (e.target.closest('.delete-btn, .resize-handle, .rotate-handle')) return;
+      if (e.target.closest('.delete-btn, .edit-btn, .resize-handle, .rotate-handle')) return;
       e.stopPropagation();
       selectOverlay(overlay);
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -3505,13 +3658,12 @@
   function endOverlayDrag() {
     clearTimeout(longPressTimer);
     if (!overlayDrag) return;
-
-    const { overlay, mode, hasMoved, didLongPress } = overlayDrag;
-    if (overlay.type === 'text' && mode === 'move' && !hasMoved && !didLongPress) {
-      openTextModal(overlay);
-    }
-
+    const changed = overlayDrag.hasMoved;
     overlayDrag = null;
+    if (changed) {
+      invalidateExportWarm();
+      scheduleExportWarm();
+    }
   }
 
   document.addEventListener('mousemove', (e) => {
@@ -3545,7 +3697,7 @@
   }
 
   $('#btn-text').addEventListener('click', () => openTextModal(null));
-  $('#text-modal-back').addEventListener('click', closeTextModal);
+  $('#text-modal-close').addEventListener('click', closeTextModal);
   $('#text-cancel').addEventListener('click', closeTextModal);
   $('#text-delete').addEventListener('click', () => {
     if (editingTextOverlay) removeOverlay(editingTextOverlay);
@@ -3565,6 +3717,8 @@
       editingTextOverlay.el.querySelector('.text-label').textContent = val;
       applyTextOverlayStyle(editingTextOverlay);
       selectOverlay(editingTextOverlay);
+      invalidateExportWarm();
+      scheduleExportWarm();
     } else {
       addText(val, textStyleDraft);
       deselectAllOverlays();
@@ -3586,9 +3740,7 @@
      FLATTEN FINAL & EXPORT — 1080×1920 branded story graphic
      ============================================================ */
   const EXPORT_SIZE = { W: 1080, H: 1920 };
-  const EXPORT_BG_PATH = 'assets/jm-bg.png';
   const EXPORT_CARD_SHADOW = { color: 'rgba(0, 0, 0, 0.25)', blur: 60, offsetY: 20 };
-  let exportBgImage = null;
 
   function loadExportImage(src) {
     return new Promise((resolve, reject) => {
@@ -3600,9 +3752,20 @@
   }
 
   async function getExportBgImage() {
-    if (exportBgImage) return exportBgImage;
-    exportBgImage = await loadExportImage(EXPORT_BG_PATH);
-    return exportBgImage;
+    const path = getExportBgImagePath();
+    if (exportBgImageCache.has(path)) {
+      const cached = exportBgImageCache.get(path);
+      return cached instanceof Promise ? cached : Promise.resolve(cached);
+    }
+    const promise = loadExportImage(path).then((img) => {
+      exportBgImageCache.set(path, img);
+      return img;
+    }).catch((err) => {
+      exportBgImageCache.delete(path);
+      throw err;
+    });
+    exportBgImageCache.set(path, promise);
+    return promise;
   }
 
   function drawCoverImage(ctx, img, w, h) {
@@ -3769,8 +3932,13 @@
       ctx.fillStyle = state.exportBgColor;
       ctx.fillRect(0, 0, W, H);
     } else {
-      const bg = await getExportBgImage();
-      drawCoverImage(ctx, bg, W, H);
+      try {
+        const bg = await getExportBgImage();
+        drawCoverImage(ctx, bg, W, H);
+      } catch {
+        ctx.fillStyle = state.exportBgColor || '#f5ebe0';
+        ctx.fillRect(0, 0, W, H);
+      }
     }
 
     const card = getExportCardRect(W, H);
@@ -3786,22 +3954,79 @@
     return renderStoryExport();
   }
 
-  function canShareFile(file) {
-    if (!navigator.share || !navigator.canShare) return false;
+  let exportWarmPromise = null;
+
+  function invalidateExportWarm() {
+    exportWarmPromise = null;
+  }
+
+  function warmExportBlob() {
+    if (!exportWarmPromise) {
+      exportWarmPromise = getShareBlob().catch((err) => {
+        exportWarmPromise = null;
+        throw err;
+      });
+    }
+    return exportWarmPromise;
+  }
+
+  function primeExportOnPointerDown() {
+    invalidateExportWarm();
+    warmExportBlob();
+  }
+
+  function scheduleExportWarm() {
+    requestAnimationFrame(() => {
+      if (state.screen !== 'decorate') return;
+      warmExportBlob();
+    });
+  }
+
+  function canvasToBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas export returned empty'));
+      }, 'image/png', 1);
+    });
+  }
+
+  async function getShareBlob() {
+    const canvas = await flattenFinal();
+    return canvasToBlob(canvas);
+  }
+
+  async function requireExportBlob() {
+    const blob = await warmExportBlob();
+    if (!blob) throw new Error('Could not create image');
+    return blob;
+  }
+
+  function blobToShareFile(blob) {
+    return new File([blob], 'jigsaw-story.png', { type: 'image/png' });
+  }
+
+  function canShareFiles(shareData) {
+    if (!navigator.share) return false;
+    if (!navigator.canShare) return true;
     try {
-      return navigator.canShare({ files: [file] });
+      return navigator.canShare(shareData);
     } catch {
       return false;
     }
   }
 
-  async function getShareBlob() {
-    const canvas = await flattenFinal();
-    return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  }
-
-  function blobToShareFile(blob) {
-    return new File([blob], 'jigsaw-story.png', { type: 'image/png' });
+  function setExportButtonBusy(btn, busy) {
+    if (!btn) return;
+    btn.classList.toggle('is-busy', busy);
+    btn.disabled = busy;
+    if (busy && !btn.dataset.originalLabel) {
+      btn.dataset.originalLabel = btn.textContent;
+      btn.textContent = 'Preparing…';
+    } else if (!busy && btn.dataset.originalLabel) {
+      btn.textContent = btn.dataset.originalLabel;
+      delete btn.dataset.originalLabel;
+    }
   }
 
   function downloadBlob(blob, filename = 'jigsaw-story.png') {
@@ -3809,8 +4034,14 @@
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 2500);
   }
 
   async function shareStory() {
@@ -3818,29 +4049,58 @@
     closeDecorateSheets();
     closeTextModal();
     deselectAllOverlays();
+    const btn = $('#btn-share');
+    setExportButtonBusy(btn, true);
     try {
-      const blob = await getShareBlob();
-      const file = blobToShareFile(blob);
-      if (canShareFile(file)) {
-        await navigator.share({ files: [file], title: 'Jigsaw Maker' });
+      const blob = await requireExportBlob();
+      const shareData = { files: [blobToShareFile(blob)], title: 'Jigsaw Maker' };
+      if (navigator.share && (!navigator.canShare || canShareFiles(shareData))) {
+        await navigator.share(shareData);
+        trackEvent('share_completed');
         return;
       }
       downloadBlob(blob);
+      trackEvent('share_completed');
     } catch (err) {
       if (err?.name === 'AbortError') return;
+      console.error('Share failed', err);
+      try {
+        downloadBlob(await getShareBlob());
+      } catch (fallbackErr) {
+        console.error('Share fallback failed', fallbackErr);
+      }
+    } finally {
+      setExportButtonBusy(btn, false);
+      invalidateExportWarm();
+      scheduleExportWarm();
     }
   }
 
   async function saveImage() {
+    closeDecorateSheets();
+    closeTextModal();
+    deselectAllOverlays();
+    const btn = $('#btn-save-image');
+    setExportButtonBusy(btn, true);
     try {
-      const blob = await getShareBlob();
+      const blob = await requireExportBlob();
       downloadBlob(blob);
       trackEvent('image_saved');
-    } catch (_) {}
+    } catch (err) {
+      console.error('Save failed', err);
+    } finally {
+      setExportButtonBusy(btn, false);
+      invalidateExportWarm();
+      scheduleExportWarm();
+    }
   }
 
-  $('#btn-share').addEventListener('click', shareStory);
-  $('#btn-save-image').addEventListener('click', saveImage);
+  const btnShare = $('#btn-share');
+  const btnSaveImage = $('#btn-save-image');
+  btnShare?.addEventListener('pointerdown', primeExportOnPointerDown, { passive: true });
+  btnSaveImage?.addEventListener('pointerdown', primeExportOnPointerDown, { passive: true });
+  btnShare?.addEventListener('click', shareStory);
+  btnSaveImage?.addEventListener('click', saveImage);
 
   /* ============================================================
      RESIZE HANDLER
@@ -3861,6 +4121,26 @@
      ============================================================ */
   window.HeadbreakerGen = HeadbreakerGen;
   window.renderStoryExport = renderStoryExport;
+
+  if (new URLSearchParams(location.search).has('automatedTest')) {
+    window.__jmTest = {
+      completePuzzleAndDecorate() {
+        state.pieces.forEach((p) => { p.locked = true; });
+        updateSaveButton();
+        drawBoard();
+        drawTray();
+        initStylePanelUI();
+        showScreen('decorate');
+        setupDecorateScreen({ resetOverlays: true });
+        state.decorateReady = true;
+        refreshDecorateLayout();
+      },
+      getShareBlob,
+      requireExportBlob,
+      shareStory,
+      saveImage,
+    };
+  }
   </script>
 </body>
 </html>
