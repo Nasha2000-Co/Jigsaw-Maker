@@ -1,3 +1,11 @@
 node_modules/
 screenshots-comparison/
 .DS_Store
+
+# Full-size source backgrounds (app uses assets/Bg/web/ + assets/jm-bg.jpg)
+assets/jm-bg.png
+assets/Bg/*.jpg
+!assets/Bg/web/
+!assets/Bg/thumbs/
+Jigsaw Fav icon.png
+decorate-ui-preview.html
