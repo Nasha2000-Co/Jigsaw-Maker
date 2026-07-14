@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607142244">
+  <meta name="app-version" content="202607142249">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -300,24 +300,20 @@
     .upload-card-wrap {
       position: relative;
       z-index: 1;
-      width: min(300px, calc(100vw - 32px));
       margin-top: 0;
       margin-bottom: 0;
       flex-shrink: 0;
+      /* Exact 300×400 portrait (3:4) — width/height set in layoutUploadCard() */
     }
 
-    #screen-upload .upload-card {
-      max-height: min(320px, calc(100dvh - 260px));
-      background: #ffffff;
-    }
-
+    #screen-upload .upload-card,
     .upload-card {
-      width: min(300px, calc(100vw - 32px));
-      aspect-ratio: 3 / 4;
-      height: auto;
-      max-height: min(320px, calc(100dvh - 260px));
-      display: block;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
       padding: 22px;
+      box-sizing: border-box;
       background: #ffffff;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -334,9 +330,9 @@
     }
 
     .upload-dashed {
+      flex: 1;
       width: 100%;
-      height: 100%;
-      min-height: 160px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -632,7 +628,8 @@
       border-radius: 14px;
       touch-action: none;
       box-shadow: var(--puzzle-card-shadow);
-      /* Size set in JS — avoid max-width alone (breaks 3:4 aspect). */
+      aspect-ratio: 3 / 4;
+      /* Width + height set in JS — aspect-ratio keeps 300×400 on all screens */
     }
 
     .tray-wrap {
@@ -702,7 +699,8 @@
       touch-action: none;
       border: 1.5px solid rgba(0,0,0,0.12);
       box-shadow: var(--puzzle-card-shadow);
-      /* Display size is set in JS — never use max-width alone (breaks aspect ratio). */
+      aspect-ratio: 3 / 4;
+      /* Display size is set in JS — always 300×400 (3:4). */
     }
 
     .tool-row {
@@ -1373,7 +1371,11 @@
         var v = document.querySelector('meta[name="app-version"]')?.content || '';
         var bg = document.getElementById('app-bg');
         if (bg && v) {
+          bg.style.backgroundColor = '#e8dcc8';
           bg.style.backgroundImage = "url('assets/jm-bg.jpg?v=" + encodeURIComponent(v) + "')";
+          bg.style.backgroundSize = 'cover';
+          bg.style.backgroundPosition = 'center';
+          bg.style.backgroundRepeat = 'no-repeat';
         }
       })();
     </script>
@@ -2025,10 +2027,37 @@
       closeDecorateSheets();
       restoreAppBg();
     }
+    if (name === 'upload') {
+      layoutUploadCard();
+    }
   }
 
   const PUZZLE_WIDTH = 300;
   const PUZZLE_HEIGHT = 400;
+
+  /** One layout rule for every puzzle frame — always 300×400 portrait (3:4). */
+  function layoutPuzzleFrame(maxW, maxH, srcW = PUZZLE_WIDTH, srcH = PUZZLE_HEIGHT) {
+    const widthScale = maxW / srcW;
+    const heightScale = maxH / srcH;
+    const scale = Math.min(1, widthScale, heightScale);
+    return {
+      w: srcW * scale,
+      h: srcH * scale,
+      scale,
+    };
+  }
+
+  function layoutUploadCard() {
+    const wrap = $('.upload-card-wrap');
+    const btnStart = $('#btn-start');
+    if (!wrap) return;
+    const maxW = Math.min(PUZZLE_WIDTH, window.innerWidth - 40);
+    const maxH = Math.max(160, window.innerHeight - 280);
+    const frame = layoutPuzzleFrame(maxW, maxH);
+    wrap.style.width = `${frame.w}px`;
+    wrap.style.height = `${frame.h}px`;
+    if (btnStart) btnStart.style.width = `${frame.w}px`;
+  }
 
   /* ============================================================
      UPLOAD
@@ -2159,15 +2188,18 @@
   }
 
   function restoreAppBg() {
+    applyDefaultAppBg();
+  }
+
+  function applyDefaultAppBg() {
     const bgEl = $('.bg');
     if (!bgEl) return;
-    bgEl.style.background = '';
-    bgEl.style.backgroundColor = '';
-    bgEl.style.backgroundImage = '';
-    bgEl.style.backgroundSize = '';
-    bgEl.style.backgroundPosition = '';
-    bgEl.style.backgroundRepeat = '';
-    bgEl.style.backgroundAttachment = '';
+    bgEl.style.backgroundColor = '#e8dcc8';
+    bgEl.style.backgroundImage = `url("${assetUrl('assets/jm-bg.jpg')}")`;
+    bgEl.style.backgroundSize = 'cover';
+    bgEl.style.backgroundPosition = 'center';
+    bgEl.style.backgroundRepeat = 'no-repeat';
+    bgEl.style.backgroundAttachment = 'scroll';
   }
 
   function applyExportBgPreview() {
@@ -2399,11 +2431,9 @@
      PUZZLE INIT
      ============================================================ */
   function getPlayBoardScale() {
-    const widthScale = (window.innerWidth - 40) / PUZZLE_WIDTH;
-    const reserved = 310;
-    const availableH = Math.max(180, window.innerHeight - reserved);
-    const heightScale = availableH / PUZZLE_HEIGHT;
-    return Math.min(1, widthScale, heightScale);
+    const maxW = window.innerWidth - 40;
+    const maxH = Math.max(160, window.innerHeight - 300);
+    return layoutPuzzleFrame(maxW, maxH).scale;
   }
 
   function initPuzzle({ preserveProgress = false } = {}) {
@@ -2524,6 +2554,7 @@
     boardCanvas.height = state.boardH * dpr;
     boardCanvas.style.width = state.boardW + 'px';
     boardCanvas.style.height = state.boardH + 'px';
+    boardCanvas.style.aspectRatio = `${PUZZLE_WIDTH} / ${PUZZLE_HEIGHT}`;
     boardCanvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
     resizeTrayCanvas();
   }
@@ -2858,23 +2889,17 @@
     const stageW = Math.max(1, stage?.clientWidth || Math.min(PUZZLE_WIDTH, window.innerWidth - 40));
     const stageH = Math.max(1, stage?.clientHeight || 200);
     const pad = 8;
-    const srcW = PUZZLE_WIDTH;
-    const srcH = PUZZLE_HEIGHT;
     const maxW = Math.min(PUZZLE_WIDTH, stageW - pad * 2, window.innerWidth - 40);
     const maxH = Math.max(80, stageH - pad * 2);
-    const widthScale = maxW / srcW;
-    const heightScale = maxH / srcH;
-    const scale = Math.min(widthScale, heightScale, 1);
-    const puzzleW = srcW * scale;
-    const puzzleH = srcH * scale;
+    const frame = layoutPuzzleFrame(maxW, maxH);
     return {
       stageW,
       stageH,
-      puzzleW,
-      puzzleH,
-      puzzleX: (stageW - puzzleW) / 2,
-      puzzleY: (stageH - puzzleH) / 2,
-      scale,
+      puzzleW: frame.w,
+      puzzleH: frame.h,
+      puzzleX: (stageW - frame.w) / 2,
+      puzzleY: (stageH - frame.h) / 2,
+      scale: frame.scale,
     };
   }
 
@@ -4153,6 +4178,9 @@
      RESIZE HANDLER
      ============================================================ */
   window.addEventListener('resize', () => {
+    if (state.screen === 'upload') {
+      layoutUploadCard();
+    }
     if (state.screen === 'play' && state.image) {
       initPuzzle({ preserveProgress: true });
     }
@@ -4162,6 +4190,7 @@
   });
 
   initDecorateLayoutObserver();
+  layoutUploadCard();
 
   /* ============================================================
      DEV: expose generator for standalone testing
