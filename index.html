@@ -3,12 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="20260714b">
+  <meta name="app-version" content="2026071422">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-  <link rel="preload" as="image" href="assets/jm-bg.jpg">
+  <link rel="preload" as="image" href="assets/jm-bg.jpg" id="preload-app-bg">
+  <script>
+    (function () {
+      var v = document.querySelector('meta[name="app-version"]')?.content || '';
+      var preload = document.getElementById('preload-app-bg');
+      if (preload && v) preload.href = 'assets/jm-bg.jpg?v=' + encodeURIComponent(v);
+    })();
+  </script>
   <!-- Google tag (gtag.js) — anonymous usage metrics only -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EJ22395JR7"></script>
   <script>
@@ -53,12 +60,15 @@
       overflow: hidden;
     }
 
-    /* Background */
+    /* Background — image URL set inline with app-version cache bust */
     .bg {
       position: fixed;
       inset: 0;
       z-index: 0;
-      background: url('assets/jm-bg.jpg') center/cover no-repeat scroll;
+      background-color: #e8dcc8;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
     }
 
     .sparkles {
@@ -1350,8 +1360,23 @@
   </style>
 </head>
 <body>
+  <script>
+    (function () {
+      var v = document.querySelector('meta[name="app-version"]')?.content || '';
+      document.documentElement.dataset.jmBuild = v;
+    })();
+  </script>
   <div class="app">
-    <div class="bg"></div>
+    <div class="bg" id="app-bg"></div>
+    <script>
+      (function () {
+        var v = document.querySelector('meta[name="app-version"]')?.content || '';
+        var bg = document.getElementById('app-bg');
+        if (bg && v) {
+          bg.style.backgroundImage = "url('assets/jm-bg.jpg?v=" + encodeURIComponent(v) + "')";
+        }
+      })();
+    </script>
     <div class="sparkles"></div>
 
     <header>
@@ -1839,10 +1864,18 @@
 
   const STICKER_PATH = 'assets/Stickers';
   const STICKER_EXT = '.png';
-  const STICKER_CACHE_VERSION = '20260714';
+
+  function getAppBuild() {
+    return document.querySelector('meta[name="app-version"]')?.content || 'dev';
+  }
+
+  function assetUrl(path) {
+    const joiner = path.includes('?') ? '&' : '?';
+    return `${path}${joiner}v=${encodeURIComponent(getAppBuild())}`;
+  }
 
   function stickerSrc(name) {
-    return `${STICKER_PATH}/${encodeURIComponent(name)}${STICKER_EXT}?v=${STICKER_CACHE_VERSION}`;
+    return assetUrl(`${STICKER_PATH}/${encodeURIComponent(name)}${STICKER_EXT}`);
   }
 
   const STICKERS = [
@@ -2093,7 +2126,6 @@
   ];
 
   const EXPORT_BG_PATH = 'assets/Bg/web';
-  const BG_IMAGE_VERSION = '20260714';
   const EXPORT_BG_IMAGES = [
     { id: 'default', file: 'jm-bg.jpg', title: 'Default photo', root: 'assets' },
     { id: 'blue-sky-hill', file: 'blue-sky-green-hill-white-flowers.jpg', title: 'Blue sky hill' },
@@ -2107,15 +2139,15 @@
 
   function exportBgImageSrc(entry) {
     const base = entry.root ? `${entry.root}/${entry.file}` : `${EXPORT_BG_PATH}/${entry.file}`;
-    return `${base}?v=${BG_IMAGE_VERSION}`;
+    return assetUrl(base);
   }
 
   function exportBgThumbSrc(entry) {
     const file = entry.file.replace(/\.png$/i, '.jpg');
     if (entry.id === 'default') {
-      return `assets/Bg/thumbs/jm-bg.jpg?v=${BG_IMAGE_VERSION}`;
+      return assetUrl('assets/Bg/thumbs/jm-bg.jpg');
     }
-    return `assets/Bg/thumbs/${file}?v=${BG_IMAGE_VERSION}`;
+    return assetUrl(`assets/Bg/thumbs/${file}`);
   }
 
   function getExportBgImageEntry(id = state.exportBgImageId) {
