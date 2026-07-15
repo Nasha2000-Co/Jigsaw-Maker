@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151406">
+  <meta name="app-version" content="202607151408">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -292,10 +292,16 @@
       min-height: 0;
       width: 100%;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
       padding-top: 10px;
       margin-bottom: 0;
+      overflow: hidden;
+    }
+
+    #screen-play #board-canvas {
+      max-width: 100%;
+      max-height: 100%;
     }
 
     #screen-play .play-bottom {
@@ -2795,16 +2801,75 @@
   /* ============================================================
      PUZZLE INIT
      ============================================================ */
+  function getPlayTrayChromeHeight() {
+    const countLine = 16;
+    const padding = 8;
+    return (state.trayH || 88) + countLine + padding;
+  }
+
   function getPlayChromeHeight() {
     const header = document.querySelector('header');
     let chrome = header?.offsetHeight || 72;
     const playTop = $('#screen-play .play-top');
     const playBottom = $('#screen-play .play-bottom');
     if (playTop) chrome += playTop.offsetHeight;
-    if (playBottom) chrome += playBottom.offsetHeight;
-    else chrome += (state.trayH || 96) + 18;
+    if (playBottom && playBottom.offsetHeight > 24) {
+      chrome += playBottom.offsetHeight;
+    } else {
+      chrome += getPlayTrayChromeHeight();
+    }
     chrome += 8;
     return chrome;
+  }
+
+  function getPlayBoardScale() {
+    const maxW = window.innerWidth - 40;
+    const maxH = Math.max(100, window.innerHeight - getPlayChromeHeight());
+    return layoutPuzzleFrame(maxW, maxH).scale;
+  }
+
+  function applyPlayBoardScale(scale) {
+    state.boardW = PUZZLE_WIDTH * scale;
+    state.boardH = PUZZLE_HEIGHT * scale;
+    state.cellW = state.boardW / state.cols;
+    state.cellH = state.boardH / state.rows;
+    const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
+
+    state.pieces.forEach((p) => {
+      const placement = HeadbreakerGen.getPieceBoardPlacement(
+        p.row,
+        p.col,
+        p.canvas.width,
+        p.canvas.height,
+        boardScale,
+        state.cellW,
+        state.cellH
+      );
+      p.padTop = placement.padTop;
+      p.padLeft = placement.padLeft;
+      p.padRight = (p.nativePadRight ?? 0) * boardScale;
+      p.padBottom = (p.nativePadBottom ?? 0) * boardScale;
+      p.drawX = placement.x;
+      p.drawY = placement.y;
+      p.drawW = placement.dw;
+      p.drawH = placement.dh;
+      p.snapX = placement.snapX;
+      p.snapY = placement.snapY;
+      p.boardX = p.col * state.cellW;
+      p.boardY = p.row * state.cellH;
+      p._composed = null;
+    });
+  }
+
+  function fitPlayBoardToTray() {
+    if (state.screen !== 'play' || !state.pieces.length) return;
+    const nextScale = getPlayBoardScale();
+    const currentScale = state.boardW / PUZZLE_WIDTH;
+    if (Math.abs(nextScale - currentScale) < 0.005) return;
+    applyPlayBoardScale(nextScale);
+    resizeCanvases();
+    drawBoard();
+    drawTray();
   }
 
   function planTrayDimensions(unlockedCount) {
@@ -2833,26 +2898,9 @@
     state.trayH = Math.max(88, pad * 2 + rows * 72);
   }
 
-  function getPlayBoardScale() {
-    const maxW = window.innerWidth - 40;
-    const boardWrap = document.querySelector('#screen-play.active .board-wrap');
-    if (boardWrap && boardWrap.clientHeight > 60) {
-      return layoutPuzzleFrame(maxW, boardWrap.clientHeight).scale;
-    }
-    const maxH = Math.max(100, window.innerHeight - getPlayChromeHeight());
-    return layoutPuzzleFrame(maxW, maxH).scale;
-  }
-
   function refreshPlayLayout({ preserveProgress = true } = {}) {
     if (state.screen !== 'play' || !state.image || !state.pieces.length) return;
-    const boardWrap = document.querySelector('#screen-play .board-wrap');
-    if (!boardWrap || boardWrap.clientHeight < 60) return;
-
-    const nextScale = layoutPuzzleFrame(window.innerWidth - 40, boardWrap.clientHeight).scale;
-    const currentScale = state.boardW / PUZZLE_WIDTH;
-    if (Math.abs(nextScale - currentScale) < 0.02) return;
-
-    initPuzzle({ preserveProgress });
+    fitPlayBoardToTray();
   }
 
   function initPuzzle({ preserveProgress = false } = {}) {
@@ -2881,48 +2929,22 @@
     const totalPieces = rows * cols;
     const unlockedCount = lockedSet ? totalPieces - lockedSet.size : totalPieces;
     planTrayDimensions(unlockedCount);
-    const scale = getPlayBoardScale();
-    state.boardW = PUZZLE_WIDTH * scale;
-    state.boardH = PUZZLE_HEIGHT * scale;
-    state.cellW = state.boardW / cols;
-    state.cellH = state.boardH / rows;
 
     HeadbreakerGen.setStrokeColor(hexToStrokeRgba(state.strokeColor));
     const { depth } = HeadbreakerGen.initGeometry(img, rows, cols);
     state.depth = depth;
 
-    const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
-
     state.pieces = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const pieceData = HeadbreakerGen.createPieceCanvas(img, r, c);
-        const placement = HeadbreakerGen.getPieceBoardPlacement(
-          r,
-          c,
-          pieceData.canvas.width,
-          pieceData.canvas.height,
-          boardScale,
-          state.cellW,
-          state.cellH
-        );
         state.pieces.push({
           row: r, col: c,
           canvas: pieceData.canvas,
-          padTop: placement.padTop,
-          padLeft: placement.padLeft,
-          padRight: pieceData.padRight * boardScale,
-          padBottom: pieceData.padBottom * boardScale,
-          drawX: placement.x,
-          drawY: placement.y,
-          drawW: placement.dw,
-          drawH: placement.dh,
-          snapX: placement.snapX,
-          snapY: placement.snapY,
+          nativePadRight: pieceData.padRight,
+          nativePadBottom: pieceData.padBottom,
           locked: lockedSet ? lockedSet.has(`${r},${c}`) : false,
           trayX: 0, trayY: 0,
-          boardX: c * state.cellW,
-          boardY: r * state.cellH,
           _composed: null,
         });
       }
@@ -2941,13 +2963,15 @@
     } else {
       scatterTrayPieces({ randomize: true });
     }
+
+    applyPlayBoardScale(getPlayBoardScale());
     resizeCanvases();
     drawBoard();
     drawTray();
     updateSaveButton();
     updateTrayVisibility();
     updateTrayCount();
-    requestAnimationFrame(() => refreshPlayLayout({ preserveProgress: true }));
+    requestAnimationFrame(() => fitPlayBoardToTray());
   }
 
   function getTrayPieceDisplaySize(piece) {
@@ -2966,6 +2990,64 @@
     return arr;
   }
 
+  function getTrayOccupiedRects(excludePiece = null) {
+    return state.pieces
+      .filter((p) => !p.locked && p !== excludePiece)
+      .map((p) => {
+        const { dw, dh } = getTrayPieceDisplaySize(p);
+        return { x: p.trayX, y: p.trayY, w: dw, h: dh };
+      });
+  }
+
+  function overlapsTrayRect(x, y, w, h, rects, gap = 8) {
+    return rects.some((o) => !(
+      x + w + gap <= o.x ||
+      x >= o.x + o.w + gap ||
+      y + h + gap <= o.y ||
+      y >= o.y + o.h + gap
+    ));
+  }
+
+  function placePieceRandomlyInTray(piece, { expandTray = true } = {}) {
+    const maxTrayW = Math.min(340, window.innerWidth - 40);
+    const pad = 10;
+    const { dw, dh } = getTrayPieceDisplaySize(piece);
+    const occupied = getTrayOccupiedRects(piece);
+
+    for (let attempt = 0; attempt < 140; attempt++) {
+      const x = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
+      const y = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
+      if (!overlapsTrayRect(x, y, dw, dh, occupied)) {
+        piece.trayX = x;
+        piece.trayY = y;
+        if (expandTray) {
+          state.trayW = Math.min(maxTrayW, Math.max(state.trayW, x + dw + pad));
+          state.trayH = Math.max(state.trayH, y + dh + pad);
+        }
+        return;
+      }
+    }
+
+    if (expandTray && state.trayW < maxTrayW) {
+      state.trayW = Math.min(maxTrayW, state.trayW + Math.ceil(dw * 0.55));
+      state.trayH = Math.max(state.trayH + Math.ceil(dh * 0.35), state.trayH);
+      placePieceRandomlyInTray(piece, { expandTray: false });
+      return;
+    }
+
+    piece.trayX = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
+    piece.trayY = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
+  }
+
+  function returnPieceToTray(piece) {
+    piece._composed = null;
+    placePieceRandomlyInTray(piece);
+    resizeTrayCanvas();
+    drawTray();
+    updateTrayCount();
+    requestAnimationFrame(() => fitPlayBoardToTray());
+  }
+
   function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
     const maxTrayW = Math.min(340, window.innerWidth - 40);
     const pad = 10;
@@ -2976,44 +3058,13 @@
 
     const scatterRows = count <= 3 ? 1 : count <= 8 ? 2 : 3;
     const scatterCols = Math.ceil(count / scatterRows);
-    state.trayW = Math.max(180, Math.min(maxTrayW, pad * 2 + scatterCols * 56 + 20));
-    state.trayH = Math.max(100, pad * 2 + scatterRows * 78 + (count > 6 ? 16 : 0));
+    state.trayW = Math.max(200, Math.min(maxTrayW, pad * 2 + scatterCols * 72 + 24));
+    state.trayH = Math.max(110, pad * 2 + scatterRows * 82 + (count > 6 ? 20 : 0));
 
-    const occupied = [];
-    const overlaps = (x, y, w, h) =>
-      occupied.some((o) => !(x + w <= o.x + 4 || x >= o.x + o.w - 4 || y + h <= o.y + 4 || y >= o.y + o.h - 4));
-
-    const slotCols = Math.max(2, Math.ceil(Math.sqrt(count * 1.35)));
-
-    unlocked.forEach((p, i) => {
-      const { dw, dh } = getTrayPieceDisplaySize(p);
-      let placed = false;
-
-      for (let attempt = 0; attempt < 80 && !placed; attempt++) {
-        const x = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
-        const y = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
-        if (!overlaps(x, y, dw, dh)) {
-          p.trayX = x;
-          p.trayY = y;
-          occupied.push({ x, y, w: dw, h: dh });
-          placed = true;
-        }
-      }
-
-      if (!placed) {
-        const col = i % slotCols;
-        const row = Math.floor(i / slotCols);
-        const slotW = (state.trayW - pad * 2) / slotCols;
-        const slotRows = Math.ceil(count / slotCols);
-        const slotH = (state.trayH - pad * 2) / slotRows;
-        p.trayX = pad + col * slotW + Math.max(0, (slotW - dw) / 2) + (Math.random() - 0.5) * 10;
-        p.trayY = pad + row * slotH + Math.max(0, (slotH - dh) / 2) + (Math.random() - 0.5) * 8;
-        occupied.push({ x: p.trayX, y: p.trayY, w: dw, h: dh });
-      }
-    });
+    unlocked.forEach((p) => placePieceRandomlyInTray(p));
   }
 
-  function scatterTrayPieces({ randomize = false, relayout = false } = {}) {
+  function scatterTrayPieces({ randomize = false } = {}) {
     const unlocked = state.pieces.filter(p => !p.locked);
     const maxTrayW = Math.min(340, window.innerWidth - 40);
     const pad = 10;
@@ -3025,7 +3076,7 @@
       return;
     }
 
-    if (randomize || relayout) {
+    if (randomize) {
       spreadTrayPieces(unlocked, { shuffle: true });
     } else {
       let maxX = pad;
@@ -3363,15 +3414,9 @@
       updateSaveButton();
     } else if (onBoard) {
       playSnapFailFeedback();
-      piece._composed = null;
-      scatterTrayPieces({ relayout: true });
-      drawTray();
-      updateTrayCount();
+      returnPieceToTray(piece);
     } else {
-      piece._composed = null;
-      scatterTrayPieces({ relayout: true });
-      drawTray();
-      updateTrayCount();
+      returnPieceToTray(piece);
     }
 
     floatingPiece.style.display = 'none';
