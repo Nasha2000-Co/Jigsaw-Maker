@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151338">
+  <meta name="app-version" content="202607151340">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -4229,9 +4229,59 @@
     ctx.drawImage(img, dx, dy, dw, dh);
   }
 
-  function drawExportCredit(ctx, exportW, exportH) {
-    const y = exportH - 88;
-    const fontSize = 34;
+  function readLetterSpacingPx(style, fontSize) {
+    const ls = style.letterSpacing;
+    if (!ls || ls === 'normal') return fontSize * 0.28;
+    if (ls.endsWith('em')) return fontSize * parseFloat(ls);
+    return parseFloat(ls) || fontSize * 0.28;
+  }
+
+  /** Map live decorate-screen layout → 1080×1920 export (WYSIWYG). */
+  function measureExportLayout(exportW, exportH) {
+    const app = document.querySelector('.app');
+    const h1 = document.querySelector('header h1');
+    const canvas = decorateCanvas;
+    if (!app || !h1 || !canvas || state.screen !== 'decorate') return null;
+
+    refreshDecorateLayout();
+
+    const appRect = app.getBoundingClientRect();
+    if (appRect.width < 1 || appRect.height < 1) return null;
+
+    const h1Rect = h1.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const footerCredit = document.querySelector('footer .credit');
+    const footerRect = footerCredit?.getBoundingClientRect();
+
+    const scaleX = exportW / appRect.width;
+    const scaleY = exportH / appRect.height;
+
+    const h1Style = getComputedStyle(h1);
+    const titleFontSize = parseFloat(h1Style.fontSize) * scaleY;
+    const titleLetterSpacing = readLetterSpacingPx(h1Style, parseFloat(h1Style.fontSize)) * scaleY;
+
+    const creditStyle = footerCredit ? getComputedStyle(footerCredit) : null;
+    const creditFontSize = creditStyle ? parseFloat(creditStyle.fontSize) * scaleY : 34 * scaleY;
+
+    return {
+      titleY: (h1Rect.top + h1Rect.height / 2 - appRect.top) * scaleY,
+      titleFontSize,
+      titleLetterSpacing,
+      cardX: (canvasRect.left - appRect.left) * scaleX,
+      cardY: (canvasRect.top - appRect.top) * scaleY,
+      cardW: canvasRect.width * scaleX,
+      cardH: canvasRect.height * scaleY,
+      cardRadius: 14 * (canvasRect.width / PUZZLE_WIDTH) * scaleX,
+      creditY: footerRect
+        ? (footerRect.top + footerRect.height / 2 - appRect.top) * scaleY
+        : exportH - 88 * scaleY,
+      creditFontSize,
+    };
+  }
+
+  function drawExportCredit(ctx, exportW, metrics) {
+    const y = metrics?.creditY ?? 1832;
+    const fontSize = metrics?.creditFontSize ?? 34;
     ctx.save();
     ctx.font = `400 ${fontSize}px "Instrument Serif", Georgia, serif`;
     ctx.fillStyle = '#ffffff';
@@ -4244,11 +4294,11 @@
     ctx.restore();
   }
 
-  function drawExportTitle(ctx, exportW) {
+  function drawExportTitle(ctx, exportW, metrics) {
     const text = 'JIGSAW MAKER';
-    const fontSize = 54;
-    const letterSpacing = fontSize * 0.28;
-    const y = 78;
+    const fontSize = metrics?.titleFontSize ?? 54;
+    const letterSpacing = metrics?.titleLetterSpacing ?? fontSize * 0.28;
+    const y = metrics?.titleY ?? 78;
 
     ctx.save();
     ctx.font = `500 ${fontSize}px "Instrument Serif", Georgia, serif`;
@@ -4416,12 +4466,22 @@
       }
     }
 
-    const card = getExportCardRect(W, H);
-    drawExportTitle(ctx, W);
+    const metrics = measureExportLayout(W, H);
+    const card = metrics
+      ? {
+          x: Math.round(metrics.cardX),
+          y: Math.round(metrics.cardY),
+          w: Math.round(metrics.cardW),
+          h: Math.round(metrics.cardH),
+          radius: Math.round(metrics.cardRadius),
+        }
+      : getExportCardRect(W, H);
+
+    drawExportTitle(ctx, W, metrics);
     drawExportCardShadow(ctx, card);
     drawExportPuzzleCard(ctx, assembled, card);
     drawExportOverlays(ctx, card, layout);
-    drawExportCredit(ctx, W, H);
+    drawExportCredit(ctx, W, metrics);
 
     return canvas;
   }
