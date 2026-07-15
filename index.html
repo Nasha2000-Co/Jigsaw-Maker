@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151651">
+  <meta name="app-version" content="202607151654">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -2859,21 +2859,23 @@
     applyTraySizeForCount(unlocked.length);
 
     const occupied = [];
-    let changed = false;
+    let needsRelayout = false;
     for (const piece of unlocked) {
       const { dw, dh } = getTrayPieceDisplaySize(piece);
       const overlaps = overlapsTrayRect(piece.trayX, piece.trayY, dw, dh, occupied, TRAY_GAP);
       const outOfBounds = !isPieceInsideTray(piece);
       if (overlaps || outOfBounds) {
-        const pos = findTrayPlacement(piece, occupied, { expandTray: false });
-        piece.trayX = pos.x;
-        piece.trayY = pos.y;
-        piece._composed = null;
-        changed = true;
+        needsRelayout = true;
+        break;
       }
       occupied.push({ x: piece.trayX, y: piece.trayY, w: dw, h: dh });
     }
-    return changed;
+
+    if (needsRelayout) {
+      layoutTrayPieces(unlocked);
+      return true;
+    }
+    return false;
   }
 
   function getPlayTrayChromeHeight() {
@@ -2979,28 +2981,14 @@
 
   function planTrayDimensions(unlockedCount) {
     const count = unlockedCount ?? state.pieces.filter((p) => !p.locked).length;
-    const maxTrayW = Math.min(340, window.innerWidth - 40);
-    const pad = 10;
-
     if (!count) {
       state.trayW = 160;
       state.trayH = 88;
       return;
     }
-
-    const shortViewport = window.innerHeight < 740;
-    const rows = shortViewport ? 1 : (count <= 5 ? 1 : count <= 10 ? 2 : 3);
-    const cols = Math.ceil(count / rows);
-    const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / Math.max(cols, 1)));
-
-    if (shortViewport) {
-      state.trayW = Math.max(160, Math.min(maxTrayW, pad * 2 + count * Math.max(slotW, 52)));
-      state.trayH = Math.max(84, pad * 2 + 68);
-      return;
-    }
-
-    state.trayW = Math.max(160, pad * 2 + cols * Math.max(slotW, 64));
-    state.trayH = Math.max(88, pad * 2 + rows * 72);
+    const size = estimateTraySize(count);
+    state.trayW = size.w;
+    state.trayH = size.h;
   }
 
   function refreshPlayLayout({ preserveProgress = true } = {}) {
@@ -3126,12 +3114,45 @@
     const maxTrayW = Math.min(340, window.innerWidth - 32);
     const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
     const slot = maxDim + TRAY_GAP;
-    const rows = count <= 2 ? 1 : 2;
+    const rows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
     const cols = Math.ceil(count / rows);
     return {
       w: Math.min(maxTrayW, Math.max(180, TRAY_PAD * 2 + cols * slot)),
       h: Math.max(88, TRAY_PAD * 2 + rows * slot),
     };
+  }
+
+  function layoutTrayPieces(unlocked, { jitter = false } = {}) {
+    const count = unlocked.length;
+    if (!count) return;
+
+    const size = estimateTraySize(count);
+    state.trayW = size.w;
+    state.trayH = size.h;
+
+    const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
+    const slot = maxDim + TRAY_GAP;
+    const rows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
+    const cols = Math.ceil(count / rows);
+    const gridW = cols * slot;
+    const gridH = rows * slot;
+    const startX = (state.trayW - gridW) / 2;
+    const startY = (state.trayH - gridH) / 2;
+
+    unlocked.forEach((piece, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      const { dw, dh } = getTrayPieceDisplaySize(piece);
+      piece.trayX = startX + col * slot + (slot - dw) / 2;
+      piece.trayY = startY + row * slot + (slot - dh) / 2;
+      if (jitter) {
+        piece.trayX += (Math.random() - 0.5) * Math.min(10, TRAY_GAP * 0.45);
+        piece.trayY += (Math.random() - 0.5) * Math.min(10, TRAY_GAP * 0.45);
+        piece.trayX = Math.max(TRAY_PAD, Math.min(piece.trayX, state.trayW - dw - TRAY_PAD));
+        piece.trayY = Math.max(TRAY_PAD, Math.min(piece.trayY, state.trayH - dh - TRAY_PAD));
+      }
+      piece._composed = null;
+    });
   }
 
   function finalizeTrayBounds(unlocked) {
@@ -3185,7 +3206,7 @@
       for (const o of occupied) {
         y = Math.max(y, o.y + o.h + gap);
       }
-      if (y + dh > state.trayH - pad) {
+      if (expandTray && y + dh > state.trayH - pad) {
         state.trayH = y + dh + pad;
       }
       return { x: pad, y: Math.min(y, Math.max(pad, state.trayH - dh - pad)) };
@@ -3214,7 +3235,7 @@
     applyTraySizeForCount(unlocked.length);
 
     const occupied = getTrayOccupiedRects(piece);
-    const pos = findTrayPlacement(piece, occupied, { expandTray: true });
+    const pos = findTrayPlacement(piece, occupied, { expandTray: false });
     piece.trayX = pos.x;
     piece.trayY = pos.y;
 
@@ -3228,14 +3249,7 @@
     if (!count) return;
 
     if (shuffle) shuffleInPlace(unlocked);
-
-    const size = estimateTraySize(count);
-    state.trayW = size.w;
-    state.trayH = size.h;
-
-    const occupied = [];
-    unlocked.forEach((p) => placePieceRandomlyInTray(p, occupied));
-    repairTrayPieces(unlocked);
+    layoutTrayPieces(unlocked, { jitter: shuffle });
   }
 
   function scatterTrayPieces({ randomize = false } = {}) {
@@ -3270,7 +3284,10 @@
 
   /** Resize tray bitmap, wipe stale pixels, redraw remaining pieces */
   function refreshTray() {
-    repairTrayPieces();
+    const unlocked = state.pieces.filter((p) => !p.locked);
+    if (unlocked.length) {
+      layoutTrayPieces(unlocked);
+    }
     updateTrayCount();
     requestAnimationFrame(() => syncPlayLayout());
   }
