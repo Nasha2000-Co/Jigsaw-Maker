@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151412">
+  <meta name="app-version" content="202607151415">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -254,19 +254,22 @@
     }
 
     #screen-decorate .btn-stack {
-      gap: 6px;
+      gap: 8px;
       margin-top: 0;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       flex-shrink: 0;
+      align-items: center;
     }
 
     #screen-decorate .btn-stack .btn {
       margin-top: 0;
-      width: min(240px, 100%);
-      font-size: 14px;
+      width: auto;
+      min-width: 0;
+      max-width: min(200px, 72vw);
+      font-size: 13px;
       font-weight: 500;
-      padding: 9px 20px;
-      letter-spacing: 0.04em;
+      padding: 8px 22px;
+      letter-spacing: 0.03em;
     }
 
     .app:has(#screen-play.active) header h1 {
@@ -3620,31 +3623,19 @@
       + 8;
   }
 
-  function layoutDecorateFrame(maxW, maxH) {
-    const widthScale = maxW / PUZZLE_WIDTH;
-    const heightScale = maxH / PUZZLE_HEIGHT;
-    const scale = Math.min(widthScale, heightScale);
-    return {
-      w: PUZZLE_WIDTH * scale,
-      h: PUZZLE_HEIGHT * scale,
-      scale,
-    };
-  }
-
-  /**
-   * Single source of truth for decorate puzzle display size.
-   * Puzzle fills available stage — image is the hero, not the buttons.
-   */
   function layoutDecoratePuzzle(flat = state.assembledCanvas) {
     const stage = $('#decorate-stage');
     const stageW = Math.max(1, stage?.clientWidth || window.innerWidth - 24);
-    const measuredStageH = stage?.clientHeight || 0;
-    const viewportStageH = Math.max(220, window.innerHeight - getDecorateChromeHeight());
-    const stageH = Math.max(measuredStageH, viewportStageH);
+    const stageH = Math.max(1, stage?.clientHeight || 320);
     const pad = DECORATE_ZONE_PAD;
     const innerW = Math.max(1, stageW - pad.left - pad.right);
-    const innerH = Math.max(120, stageH - pad.top - pad.bottom);
-    const frame = layoutDecorateFrame(innerW, innerH);
+    const innerH = Math.max(1, stageH - pad.top - pad.bottom);
+
+    // Native 300×400 max — same cap as play screen; image fits, controls stay visible
+    const maxW = Math.min(PUZZLE_WIDTH, innerW, window.innerWidth - 40);
+    const maxH = Math.min(PUZZLE_HEIGHT, innerH);
+    const frame = layoutPuzzleFrame(maxW, maxH);
+
     const puzzleX = pad.left + (innerW - frame.w) / 2;
     const puzzleY = pad.top + (innerH - frame.h) / 2;
     return {
