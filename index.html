@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151529">
+  <meta name="app-version" content="202607151537">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -876,15 +876,16 @@
     }
 
     .tool-btn:active { transform: scale(0.94); }
-    .tool-btn.sticker-btn,
-    .tool-btn.style-btn {
+    .tool-btn.sticker-btn {
       font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 500;
-      line-height: 1.1;
-      padding: 0 4px;
+      font-size: 28px;
+      font-weight: 400;
+      line-height: 1;
+      padding: 0;
       text-align: center;
     }
+
+    .tool-btn.style-btn {
 
     .tool-btn-stack {
       display: block;
@@ -1464,8 +1465,17 @@
     }
 
     .bottom-sheet-text {
-      max-height: 78vh;
+      max-height: min(58vh, 520px);
       padding-bottom: max(32px, env(safe-area-inset-bottom));
+      transition: bottom 0.25s ease, max-height 0.25s ease;
+    }
+
+    .bottom-sheet-text.text-sheet-keyboard {
+      max-height: min(42vh, 320px);
+    }
+
+    body.decorate-sheet-open {
+      overflow: hidden;
     }
 
     .bottom-sheet-text .panel-header h3 {
@@ -1697,7 +1707,7 @@
         </div>
         <div class="tool-row">
           <button class="tool-btn" id="btn-text" title="Add text">Aa</button>
-          <button class="tool-btn sticker-btn" id="btn-stickers" title="Stickers">Stickers</button>
+          <button class="tool-btn sticker-btn" id="btn-stickers" title="Stickers" aria-label="Stickers">🙂</button>
           <button class="tool-btn style-btn" id="btn-style" title="Background and stroke colors">
             <span class="tool-btn-stack">Bg &amp;<br>Stroke</span>
           </button>
@@ -2288,6 +2298,7 @@
         state.exportBgColor = state.photoBgColor;
       }
       applyExportBgPreview();
+      requestAnimationFrame(() => resetDecorateScroll());
     } else {
       closeDecorateSheets();
       restoreAppBg();
@@ -3649,6 +3660,40 @@
     state.decorateLayout = { ...layout, sourceW: PUZZLE_WIDTH, sourceH: PUZZLE_HEIGHT };
   }
 
+  function getPuzzleOverlayPoint(offsetX = 0, offsetY = 0) {
+    const layout = state.decorateLayout;
+    if (!layout) {
+      const layer = $('#overlay-layer');
+      return {
+        x: (layer?.clientWidth || 200) / 2 + offsetX,
+        y: (layer?.clientHeight || 200) / 2 + offsetY,
+      };
+    }
+    return {
+      x: layout.puzzleX + layout.puzzleW / 2 + layout.overlayOffsetX + offsetX,
+      y: layout.puzzleY + layout.puzzleH / 2 + layout.overlayOffsetY + offsetY,
+    };
+  }
+
+  function resetDecorateScroll() {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document.querySelector('.app')?.scrollTo(0, 0);
+  }
+
+  function syncTextSheetKeyboardInset() {
+    const sheet = decorateSheets?.text;
+    if (!sheet?.classList.contains('open') || !sheet.classList.contains('text-sheet-keyboard')) {
+      if (sheet) sheet.style.bottom = '';
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    sheet.style.bottom = `${inset}px`;
+  }
+
   function initDecorateLayoutObserver() {
     const stage = $('#decorate-stage');
     if (!stage || state.decorateLayoutObserver) return;
@@ -3679,6 +3724,7 @@
     }
     invalidateExportWarm();
     scheduleExportWarm();
+    requestAnimationFrame(() => resetDecorateScroll());
   }
 
   $('#btn-save-play').addEventListener('click', () => {
@@ -4468,6 +4514,7 @@
     const open = isDecorateSheetOpen();
     if (!open) sheetBackdrop?.classList.remove('open');
     document.body.classList.toggle('decorate-sheet-open', open);
+    if (open) resetDecorateScroll();
   }
 
   function closeDecorateSheets() {
@@ -4476,8 +4523,14 @@
     sheetBackdrop?.classList.remove('open');
     btnStyle?.classList.remove('active');
     btnStickers?.classList.remove('active');
-    if (hadTextSheet) editingTextOverlay = null;
+    if (hadTextSheet) {
+      $('#text-input')?.blur();
+      decorateSheets.text?.classList.remove('text-sheet-keyboard');
+      if (decorateSheets.text) decorateSheets.text.style.bottom = '';
+      editingTextOverlay = null;
+    }
     syncDecorateSheetUi();
+    if (hadTextSheet) requestAnimationFrame(() => resetDecorateScroll());
   }
 
   function hideDecorateSheetsForEyedropper() {
@@ -4490,6 +4543,7 @@
 
   function openDecorateSheet(name) {
     closeDecorateSheets();
+    resetDecorateScroll();
     const sheet = decorateSheets[name];
     if (!sheet) return;
     sheet.classList.add('open');
@@ -4662,22 +4716,24 @@
 
   function addSticker(name) {
     closeSheet();
-    const layer = $('#overlay-layer');
+    refreshDecorateLayout();
+    const center = getPuzzleOverlayPoint(-30, -30);
     const el = document.createElement('div');
     el.className = 'overlay-item';
     el.dataset.id = overlayId++;
     el.style.width = '60px';
     el.style.height = '60px';
-    el.style.left = (layer.clientWidth / 2 - 30) + 'px';
-    el.style.top = (layer.clientHeight / 2 - 30) + 'px';
+    el.style.left = `${center.x}px`;
+    el.style.top = `${center.y}px`;
     el.innerHTML = `
       <img src="${stickerSrc(name)}" alt="${name}">
       <button class="delete-btn" aria-label="Remove">✕</button>
       <div class="rotate-handle">↻</div>
       <div class="resize-handle"></div>
     `;
+    const layer = $('#overlay-layer');
     layer.appendChild(el);
-    const overlay = { el, type: 'sticker', name, x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: 60, h: 60, rotation: 0 };
+    const overlay = { el, type: 'sticker', name, x: center.x, y: center.y, w: 60, h: 60, rotation: 0 };
     state.overlays.push(overlay);
     selectOverlay(overlay);
     bindOverlayEvents(el, overlay);
@@ -4686,19 +4742,21 @@
   }
 
   function addText(text, style = textStyleDraft) {
+    refreshDecorateLayout();
+    const center = getPuzzleOverlayPoint(-40, -12);
     const layer = $('#overlay-layer');
     const el = document.createElement('div');
     el.className = 'overlay-item text-item';
     el.dataset.id = overlayId++;
-    el.style.left = (layer.clientWidth / 2 - 40) + 'px';
-    el.style.top = (layer.clientHeight / 2 - 12) + 'px';
+    el.style.left = `${center.x}px`;
+    el.style.top = `${center.y}px`;
     el.innerHTML = `<span class="text-label"></span><button type="button" class="edit-btn" aria-label="Edit text">Edit</button><button class="delete-btn" aria-label="Remove">✕</button><div class="rotate-handle">↻</div><div class="resize-handle"></div>`;
     layer.appendChild(el);
     el.querySelector('.text-label').textContent = text;
 
     const overlay = {
       el, type: 'text', text,
-      x: parseFloat(el.style.left), y: parseFloat(el.style.top),
+      x: center.x, y: center.y,
       w: 0, h: 0, rotation: 0, fontSize: 24,
       color: style.color,
       bgColor: style.bgColor,
@@ -4739,9 +4797,13 @@
 
     syncTextStyleToolbarUI(modalTextStyle, textStyleDraft);
     applyPreviewInputStyle(textStyleDraft);
+    decorateSheets.text?.classList.remove('text-sheet-keyboard');
+    if (decorateSheets.text) decorateSheets.text.style.bottom = '';
     openDecorateSheet('text');
-    input.focus();
-    if (overlay) input.select();
+    if (overlay) {
+      input.focus();
+      input.select();
+    }
   }
 
   function selectOverlay(overlay) {
@@ -4907,12 +4969,16 @@
   });
 
   function closeTextModal() {
+    $('#text-input')?.blur();
+    decorateSheets.text?.classList.remove('text-sheet-keyboard');
+    if (decorateSheets.text) decorateSheets.text.style.bottom = '';
     if (decorateSheets.text?.classList.contains('open')) {
       decorateSheets.text.classList.remove('open');
       if (!isDecorateSheetOpen()) sheetBackdrop?.classList.remove('open');
       syncDecorateSheetUi();
     }
     editingTextOverlay = null;
+    requestAnimationFrame(() => resetDecorateScroll());
   }
 
   $('#btn-text').addEventListener('click', () => {
@@ -4934,22 +5000,43 @@
       closeTextModal();
       return;
     }
-    if (editingTextOverlay) {
-      editingTextOverlay.text = val;
-      editingTextOverlay.color = textStyleDraft.color;
-      editingTextOverlay.bgColor = textStyleDraft.bgColor;
-      editingTextOverlay.fontKey = textStyleDraft.fontKey;
-      editingTextOverlay.el.querySelector('.text-label').textContent = val;
-      applyTextOverlayStyle(editingTextOverlay);
-      selectOverlay(editingTextOverlay);
-      invalidateExportWarm();
-      scheduleExportWarm();
-    } else {
-      addText(val, textStyleDraft);
-      deselectAllOverlays();
-    }
+    const style = { ...textStyleDraft };
+    const editing = editingTextOverlay;
     closeTextModal();
+    refreshDecorateLayout();
+    requestAnimationFrame(() => {
+      if (editing) {
+        editing.text = val;
+        editing.color = style.color;
+        editing.bgColor = style.bgColor;
+        editing.fontKey = style.fontKey;
+        editing.el.querySelector('.text-label').textContent = val;
+        applyTextOverlayStyle(editing);
+        selectOverlay(editing);
+        invalidateExportWarm();
+        scheduleExportWarm();
+      } else {
+        addText(val, style);
+        deselectAllOverlays();
+      }
+      resetDecorateScroll();
+    });
   });
+
+  const textInput = $('#text-input');
+  textInput?.addEventListener('focus', () => {
+    decorateSheets.text?.classList.add('text-sheet-keyboard');
+    syncTextSheetKeyboardInset();
+  });
+  textInput?.addEventListener('blur', () => {
+    decorateSheets.text?.classList.remove('text-sheet-keyboard');
+    if (decorateSheets.text) decorateSheets.text.style.bottom = '';
+  });
+  if (window.visualViewport && !window._textSheetViewportBound) {
+    window._textSheetViewportBound = true;
+    window.visualViewport.addEventListener('resize', syncTextSheetKeyboardInset);
+    window.visualViewport.addEventListener('scroll', syncTextSheetKeyboardInset);
+  }
 
   $('#btn-back-decorate').addEventListener('click', () => {
     closeDecorateSheets();
