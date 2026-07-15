@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151352">
+  <meta name="app-version" content="202607151354">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1975,6 +1975,7 @@
     exportBgMode: 'photo',
     exportBgImageId: 'default',
     exportBgColor: '#f5ebe0',
+    exportBgUserOverride: false,
     photoBgTint: null,
     decorateReady: false,
     decorateLayout: null,
@@ -2151,6 +2152,9 @@
     screens[name].classList.add('active');
     if (name === 'decorate') {
       closeDecorateSheets();
+      if (state.photoBgTint && !state.exportBgUserOverride) {
+        state.exportBgMode = 'photo';
+      }
       applyExportBgPreview();
     } else {
       closeDecorateSheets();
@@ -2248,6 +2252,7 @@
       btnStart.disabled = false;
       state.photoBgTint = extractPhotoBgTint(state.image);
       state.exportBgMode = 'photo';
+      state.exportBgUserOverride = false;
       applyDefaultAppBg();
       syncExportBgUI();
       trackEvent('photo_uploaded');
@@ -2373,7 +2378,11 @@
   function applyExportBgPreview() {
     const bgEl = $('.bg');
     if (!bgEl) return;
-    if (state.exportBgMode === 'photo') {
+    if (
+      state.exportBgMode === 'photo'
+      || (!state.exportBgUserOverride && state.photoBgTint)
+    ) {
+      state.exportBgMode = 'photo';
       applyPhotoBgTintToElement(bgEl);
       invalidateExportWarm();
       invalidateBgSampleCanvas();
@@ -2419,6 +2428,7 @@
   }
 
   function applyExportBgImage(id) {
+    state.exportBgUserOverride = true;
     state.exportBgMode = 'image';
     state.exportBgImageId = id;
     syncExportBgUI();
@@ -2427,6 +2437,7 @@
   }
 
   function applyExportBgColor(hex) {
+    state.exportBgUserOverride = true;
     state.exportBgColor = normalizeHexColor(hex);
     if (state.exportBgMode !== 'color') {
       state.exportBgMode = 'color';
@@ -2684,6 +2695,10 @@
   function initPuzzle({ preserveProgress = false } = {}) {
     state.puzzleCompletedTracked = false;
     state.decorateReady = false;
+    if (!preserveProgress) {
+      state.exportBgUserOverride = false;
+      if (state.photoBgTint) state.exportBgMode = 'photo';
+    }
 
     const lockedSet = preserveProgress
       ? new Set(state.pieces.filter(p => p.locked).map(p => `${p.row},${p.col}`))
