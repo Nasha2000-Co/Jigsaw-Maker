@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151347">
+  <meta name="app-version" content="202607151348">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1926,7 +1926,7 @@
     trayH: 0,
     assembledCanvas: null,
     strokeColor: '#ffffff',
-    exportBgMode: 'image',
+    exportBgMode: 'photo',
     exportBgImageId: 'default',
     exportBgColor: '#f5ebe0',
     photoBgTint: null,
@@ -2201,7 +2201,9 @@
       uploadLabel.classList.add('has-image');
       btnStart.disabled = false;
       state.photoBgTint = extractPhotoBgTint(state.image);
+      state.exportBgMode = 'photo';
       applyDefaultAppBg();
+      syncExportBgUI();
       trackEvent('photo_uploaded');
     };
     img.src = state.imageUrl;
@@ -2290,23 +2292,48 @@
     bgEl.style.backgroundAttachment = '';
   }
 
-  function applyDefaultAppBg() {
-    const bgEl = $('.bg');
-    if (!bgEl) return;
+  function applyPhotoBgTintToElement(bgEl, tint = state.photoBgTint) {
     clearAppBgImageStyles(bgEl);
-    if (state.photoBgTint) {
-      bgEl.style.backgroundColor = state.photoBgTint.base;
-      bgEl.style.background = state.photoBgTint.gradient;
+    if (tint) {
+      bgEl.style.backgroundColor = tint.base;
+      bgEl.style.background = tint.gradient;
     } else {
       bgEl.style.backgroundColor = DEFAULT_APP_BG_COLOR;
       bgEl.style.background = DEFAULT_APP_BG_COLOR;
     }
+  }
+
+  function drawPhotoTintBackground(ctx, w, h, tint = state.photoBgTint) {
+    if (!tint) {
+      ctx.fillStyle = DEFAULT_APP_BG_COLOR;
+      ctx.fillRect(0, 0, w, h);
+      return;
+    }
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, tint.top);
+    grad.addColorStop(0.48, tint.base);
+    grad.addColorStop(1, tint.bottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  function applyDefaultAppBg() {
+    const bgEl = $('.bg');
+    if (!bgEl) return;
+    applyPhotoBgTintToElement(bgEl);
     invalidateBgSampleCanvas();
   }
 
   function applyExportBgPreview() {
     const bgEl = $('.bg');
     if (!bgEl) return;
+    if (state.exportBgMode === 'photo') {
+      applyPhotoBgTintToElement(bgEl);
+      invalidateExportWarm();
+      invalidateBgSampleCanvas();
+      scheduleExportWarm();
+      return;
+    }
     if (state.exportBgMode === 'color') {
       bgEl.style.backgroundImage = 'none';
       bgEl.style.backgroundSize = '';
@@ -3407,6 +3434,8 @@
     const bottom = hslToHex(h, Math.min(62, s * 1.08), Math.max(72, l - 9));
     return {
       base,
+      top,
+      bottom,
       gradient: `linear-gradient(180deg, ${top} 0%, ${base} 48%, ${bottom} 100%)`,
     };
   }
@@ -3473,7 +3502,9 @@
   async function ensureBgSampleCanvas() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const key = `${state.exportBgMode}|${state.exportBgColor}|${state.exportBgImageId}|${w}|${h}`;
+    const key = state.exportBgMode === 'photo'
+      ? `photo|${state.photoBgTint?.base || DEFAULT_APP_BG_COLOR}|${w}|${h}`
+      : `${state.exportBgMode}|${state.exportBgColor}|${state.exportBgImageId}|${w}|${h}`;
     if (bgSampleState.canvas && bgSampleState.key === key) {
       return bgSampleState.canvas;
     }
@@ -3483,7 +3514,9 @@
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    if (state.exportBgMode === 'color') {
+    if (state.exportBgMode === 'photo') {
+      drawPhotoTintBackground(ctx, w, h);
+    } else if (state.exportBgMode === 'color') {
       ctx.fillStyle = state.exportBgColor;
       ctx.fillRect(0, 0, w, h);
     } else {
@@ -4627,7 +4660,9 @@
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    if (state.exportBgMode === 'color') {
+    if (state.exportBgMode === 'photo') {
+      drawPhotoTintBackground(ctx, W, H);
+    } else if (state.exportBgMode === 'color') {
       ctx.fillStyle = state.exportBgColor;
       ctx.fillRect(0, 0, W, H);
     } else {
