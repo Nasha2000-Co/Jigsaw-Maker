@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151422">
+  <meta name="app-version" content="202607151425">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -326,11 +326,17 @@
       min-height: 0;
       width: 100%;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      padding-top: 4px;
+      padding-top: 6px;
       margin-bottom: 0;
       overflow: hidden;
+    }
+
+    #screen-play.play-complete .board-wrap {
+      flex: 0 0 auto;
+      align-items: flex-start;
+      padding-top: 6px;
     }
 
     #screen-play #board-canvas {
@@ -576,14 +582,20 @@
       background: rgba(255, 255, 255, 0.95);
     }
 
-    #screen-play .btn-save-top {
+    .app:has(#screen-play.active) .btn-save-top {
       margin-top: 0;
-      padding: 0 14px;
-      min-height: 36px;
+      padding: 5px 12px;
+      min-height: 0;
+      height: auto;
       font-size: 14px;
-      line-height: 1;
+      line-height: 1.1;
       flex-shrink: 0;
       border-radius: 999px;
+      width: auto;
+      max-width: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .play-header-bar {
@@ -2889,7 +2901,8 @@
   }
 
   function getPlayTrayChromeHeight() {
-    const count = Math.max(getTrayUnlockedCount(), 1);
+    const count = getTrayUnlockedCount();
+    if (!count) return 0;
     return estimateTraySize(count).h + 20;
   }
 
@@ -2906,8 +2919,9 @@
   function getPlayBoardScale() {
     const maxW = window.innerWidth - 32;
     let maxH = Math.max(120, window.innerHeight - getPlayChromeHeight());
+    const isComplete = $('#screen-play')?.classList.contains('play-complete');
     const boardWrap = document.querySelector('#screen-play .board-wrap');
-    if (boardWrap && boardWrap.clientHeight > 60) {
+    if (boardWrap && boardWrap.clientHeight > 60 && !isComplete) {
       maxH = Math.min(maxH, boardWrap.clientHeight);
     }
     return layoutPuzzleFrame(maxW, maxH).scale;
@@ -2948,11 +2962,11 @@
 
   function syncPlayLayout() {
     if (state.screen !== 'play' || !state.pieces.length) return;
-    repairTrayPieces();
+    if (getTrayUnlockedCount()) repairTrayPieces();
     applyPlayBoardScale(getPlayBoardScale());
     resizeCanvases();
     drawBoard();
-    drawTray();
+    if (getTrayUnlockedCount()) drawTray();
   }
 
   function fitPlayBoardToTray() {
@@ -3371,10 +3385,17 @@
   function updateTrayVisibility() {
     const hasUnlocked = state.pieces.some(p => !p.locked);
     if (trayWrap) trayWrap.style.display = hasUnlocked ? '' : 'none';
+    const playBottom = $('#screen-play .play-bottom');
+    if (playBottom) playBottom.style.display = hasUnlocked ? '' : 'none';
+    const screenPlay = $('#screen-play');
+    if (screenPlay) {
+      screenPlay.classList.toggle('play-complete', !hasUnlocked && state.pieces.length > 0);
+    }
   }
 
   function updateSaveButton() {
     const allLocked = state.pieces.length > 0 && state.pieces.every(p => p.locked);
+    const wasLocked = state.puzzleCompletedTracked;
     if (allLocked && !state.puzzleCompletedTracked) {
       state.puzzleCompletedTracked = true;
       trackEvent('puzzle_completed');
@@ -3382,6 +3403,10 @@
     $('#btn-save-play').disabled = !allLocked;
     updateTrayVisibility();
     updateTrayCount();
+    if (allLocked && !wasLocked) {
+      syncPlayLayout();
+      requestAnimationFrame(() => syncPlayLayout());
+    }
   }
 
   /* Grid pill switching */
