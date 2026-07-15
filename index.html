@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151807">
+  <meta name="app-version" content="202607151901">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -2162,6 +2162,7 @@
   const state = {
     screen: 'upload',
     image: null,
+    imageHiRes: null,
     imageUrl: null,
     gridKey: '3x3',
     puzzleCompletedTracked: false,
@@ -2381,6 +2382,8 @@
 
   const PUZZLE_WIDTH = 300;
   const PUZZLE_HEIGHT = 400;
+  /** Hi-res puzzle source for Save / Share export only — gameplay stays 300×400. */
+  const EXPORT_PUZZLE_SCALE = 3;
 
   /** One layout rule for every puzzle frame — always 300×400 portrait (3:4). */
   function layoutPuzzleFrame(maxW, maxH, srcW = PUZZLE_WIDTH, srcH = PUZZLE_HEIGHT) {
@@ -2414,14 +2417,16 @@
   const uploadPreview = $('#upload-preview');
   const btnStart = $('#btn-start');
 
-  /** Crop + resize uploaded photo to fixed 300×400 puzzle aspect (cover) */
-  function resizeImageToPuzzleSize(sourceImg) {
+  /** Crop + resize uploaded photo to puzzle aspect (cover). */
+  function cropAndResizePuzzleImage(sourceImg, targetW, targetH, jpegQuality = 0.92) {
     const canvas = document.createElement('canvas');
-    canvas.width = PUZZLE_WIDTH;
-    canvas.height = PUZZLE_HEIGHT;
+    canvas.width = targetW;
+    canvas.height = targetH;
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
-    const dstAspect = PUZZLE_WIDTH / PUZZLE_HEIGHT;
+    const dstAspect = targetW / targetH;
     const srcAspect = sourceImg.width / sourceImg.height;
     let sx, sy, sw, sh;
 
@@ -2437,13 +2442,26 @@
       sy = (sourceImg.height - sh) / 2;
     }
 
-    ctx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, PUZZLE_WIDTH, PUZZLE_HEIGHT);
+    ctx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, targetW, targetH);
 
     return new Promise((resolve) => {
       const resized = new Image();
       resized.onload = () => resolve(resized);
-      resized.src = canvas.toDataURL('image/jpeg', 0.92);
+      resized.src = canvas.toDataURL('image/jpeg', jpegQuality);
     });
+  }
+
+  function resizeImageToPuzzleSize(sourceImg) {
+    return cropAndResizePuzzleImage(sourceImg, PUZZLE_WIDTH, PUZZLE_HEIGHT, 0.92);
+  }
+
+  function resizeImageToExportPuzzleSize(sourceImg) {
+    return cropAndResizePuzzleImage(
+      sourceImg,
+      PUZZLE_WIDTH * EXPORT_PUZZLE_SCALE,
+      PUZZLE_HEIGHT * EXPORT_PUZZLE_SCALE,
+      0.95
+    );
   }
 
   fileInput.addEventListener('change', async (e) => {
@@ -2451,9 +2469,11 @@
     if (!file) return;
     if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
     state.imageUrl = URL.createObjectURL(file);
+    state.imageHiRes = null;
     const img = new Image();
     img.onload = async () => {
       state.image = await resizeImageToPuzzleSize(img);
+      state.imageHiRes = await resizeImageToExportPuzzleSize(img);
       uploadPreview.src = state.image.src;
       uploadLabel.classList.add('has-image');
       btnStart.disabled = false;
@@ -3351,8 +3371,8 @@
     resizeTrayCanvas();
   }
 
-  function strokeBoardFrame(ctx, w, h, radius = 14) {
-    const lineW = HeadbreakerGen.getStrokeWidth();
+  function strokeBoardFrame(ctx, w, h, radius = 14, scale = 1) {
+    const lineW = HeadbreakerGen.getStrokeWidth() * scale;
     const inset = lineW / 2;
     ctx.save();
     ctx.beginPath();
@@ -3786,6 +3806,55 @@
     ctx.restore();
     strokeBoardFrame(ctx, nativeW, nativeH, r);
     state.assembledCanvas = canvas;
+    return canvas;
+  }
+
+  /** Hi-res puzzle raster for Save / Share only — does not affect play or decorate preview. */
+  function flattenPuzzleForExport() {
+    const scale = EXPORT_PUZZLE_SCALE;
+    const { rows, cols } = state;
+    const img = state.imageHiRes || state.image;
+    const nativeW = PUZZLE_WIDTH * scale;
+    const nativeH = PUZZLE_HEIGHT * scale;
+    const nativeCellW = nativeW / cols;
+    const nativeCellH = nativeH / rows;
+    const lineW = HeadbreakerGen.getStrokeWidth() * scale;
+    const r = 14 * scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = nativeW;
+    canvas.height = nativeH;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(0, 0, nativeW, nativeH, r);
+    ctx.clip();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, nativeW, nativeH);
+
+    ctx.save();
+    HeadbreakerGen.clipAllPiecePaths(ctx, rows, cols, nativeCellW, nativeCellH);
+    if (img?.width) {
+      ctx.drawImage(img, 0, 0, nativeW, nativeH);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = HeadbreakerGen.getStrokeColor();
+    ctx.lineWidth = lineW;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        HeadbreakerGen.buildPiecePath(ctx, row, col, col * nativeCellW, row * nativeCellH, nativeCellW, nativeCellH);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+    strokeBoardFrame(ctx, nativeW, nativeH, r, scale);
     return canvas;
   }
 
@@ -5516,6 +5585,8 @@
     ctx.beginPath();
     ctx.roundRect(card.x, card.y, card.w, card.h, card.radius);
     ctx.clip();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(assembled, card.x, card.y, card.w, card.h);
     ctx.restore();
 
@@ -5650,7 +5721,7 @@
 
   async function renderStoryExport() {
     await document.fonts.ready;
-    const assembled = state.assembledCanvas || flattenPuzzle();
+    const assembled = flattenPuzzleForExport();
 
     deselectAllOverlays();
     closeDecorateSheets();
