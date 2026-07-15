@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151727">
+  <meta name="app-version" content="202607151731">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -2897,8 +2897,25 @@
 
   function repairTrayPieces(unlocked = state.pieces.filter((p) => !p.locked)) {
     if (!unlocked.length) return false;
-    layoutTrayPieces(unlocked);
-    return true;
+    applyTraySizeForCount();
+
+    const occupied = [];
+    let changed = false;
+    for (const piece of unlocked) {
+      const { dw, dh } = getTrayPieceDisplaySize(piece);
+      const overlaps = overlapsTrayRect(piece.trayX, piece.trayY, dw, dh, occupied, TRAY_GAP);
+      const outOfBounds = !isPieceInsideTray(piece);
+      if (overlaps || outOfBounds) {
+        const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+        piece.trayX = pos.x;
+        piece.trayY = pos.y;
+        piece._composed = null;
+        changed = true;
+      }
+      const size = getTrayPieceDisplaySize(piece);
+      occupied.push({ x: piece.trayX, y: piece.trayY, w: size.dw, h: size.dh });
+    }
+    return changed;
   }
 
   function getPlayTrayChromeHeight() {
@@ -3138,41 +3155,34 @@
     };
   }
 
-  function layoutTrayPieces(unlocked, { jitter = false } = {}) {
-    const count = unlocked.length;
-    if (!count) return;
+  function scatterTrayRandomly(unlocked, { reshuffle = true } = {}) {
+    if (!unlocked.length) return;
+    applyTraySizeForCount();
 
-    const capacity = getTrayCapacity();
-    const { slot } = getTraySlotMetrics(capacity);
-    const size = estimateTraySize(capacity);
-    state.trayW = size.w;
-    state.trayH = size.h;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const list = unlocked.slice();
+      if (reshuffle || attempt > 0) shuffleInPlace(list);
 
-    const rows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
-    const cols = Math.ceil(count / rows);
-    const gridW = cols * slot;
-    const gridH = rows * slot;
-    const startX = (state.trayW - gridW) / 2;
-    const startY = (state.trayH - gridH) / 2;
-
-    unlocked.forEach((piece, index) => {
-      const row = Math.floor(index / cols);
-      const col = index % cols;
-      const { dw, dh } = getTrayPieceDisplaySize(piece);
-      piece.trayX = startX + col * slot + (slot - dw) / 2;
-      piece.trayY = startY + row * slot + (slot - dh) / 2;
-      if (jitter) {
-        piece.trayX += (Math.random() - 0.5) * Math.min(10, TRAY_GAP * 0.45);
-        piece.trayY += (Math.random() - 0.5) * Math.min(10, TRAY_GAP * 0.45);
-        piece.trayX = Math.max(TRAY_PAD, Math.min(piece.trayX, state.trayW - dw - TRAY_PAD));
-        piece.trayY = Math.max(TRAY_PAD, Math.min(piece.trayY, state.trayH - dh - TRAY_PAD));
+      const occupied = [];
+      let failed = false;
+      for (const piece of list) {
+        const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+        if (!pos) {
+          failed = true;
+          break;
+        }
+        piece.trayX = pos.x;
+        piece.trayY = pos.y;
+        piece._composed = null;
+        const { dw, dh } = getTrayPieceDisplaySize(piece);
+        occupied.push({ x: pos.x, y: pos.y, w: dw, h: dh });
       }
-      piece._composed = null;
-    });
+      if (!failed) return;
+    }
   }
 
   function finalizeTrayBounds(unlocked) {
-    if (unlocked?.length) layoutTrayPieces(unlocked);
+    if (unlocked?.length) scatterTrayRandomly(unlocked);
     else applyTraySizeForCount();
   }
 
@@ -3250,21 +3260,23 @@
     piece._composed = null;
     dragState = null;
     floatingPiece.style.display = 'none';
-    const unlocked = state.pieces.filter((p) => !p.locked);
-    layoutTrayPieces(unlocked);
+    applyTraySizeForCount();
+
+    const occupied = getTrayOccupiedRects(piece);
+    const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+    piece.trayX = pos.x;
+    piece.trayY = pos.y;
+
     updateTrayCount();
     drawTray();
   }
 
-  function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
-    const count = unlocked.length;
-    if (!count) return;
-
-    if (shuffle) shuffleInPlace(unlocked);
-    layoutTrayPieces(unlocked, { jitter: shuffle });
+  function spreadTrayPieces(unlocked, { shuffle = true } = {}) {
+    if (!unlocked.length) return;
+    scatterTrayRandomly(unlocked, { reshuffle: shuffle });
   }
 
-  function scatterTrayPieces({ randomize = false } = {}) {
+  function scatterTrayPieces({ randomize = true } = {}) {
     const unlocked = state.pieces.filter(p => !p.locked);
 
     if (!unlocked.length) {
@@ -3275,9 +3287,10 @@
     }
 
     if (randomize) {
-      spreadTrayPieces(unlocked, { shuffle: true });
+      scatterTrayRandomly(unlocked, { reshuffle: true });
     } else {
-      layoutTrayPieces(unlocked);
+      applyTraySizeForCount();
+      repairTrayPieces(unlocked);
     }
 
     resizeTrayCanvas();
@@ -3293,14 +3306,15 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  /** Resize tray bitmap, wipe stale pixels, redraw remaining pieces */
+  /** Redraw tray — keep existing positions; only repair overlaps/out-of-bounds. */
   function refreshTray() {
     const unlocked = state.pieces.filter((p) => !p.locked);
-    if (unlocked.length) {
-      layoutTrayPieces(unlocked);
-    } else {
+    if (!unlocked.length) {
       state.trayW = 160;
       state.trayH = 88;
+    } else {
+      applyTraySizeForCount();
+      repairTrayPieces(unlocked);
     }
     updateTrayCount();
     drawTray();
@@ -3427,7 +3441,8 @@
   function drawTray() {
     const unlocked = state.pieces.filter((p) => !p.locked);
     if (unlocked.length) {
-      layoutTrayPieces(unlocked);
+      applyTraySizeForCount();
+      repairTrayPieces(unlocked);
     }
     resizeTrayCanvas();
     const ctx = trayCanvas.getContext('2d');
