@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151523">
+  <meta name="app-version" content="202607151525">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1402,6 +1402,10 @@
 
     .text-style-bar[hidden] { display: none !important; }
 
+    #text-input.text-preview {
+      transition: color 0.15s, background 0.15s, font-family 0.15s;
+    }
+
     .bottom-sheet .text-style-toolbar { margin-top: 0; }
 
     .text-style-bar .text-style-toolbar { margin-top: 0; }
@@ -1482,6 +1486,53 @@
     .bottom-sheet-compact {
       max-height: 42vh;
     }
+
+    .bottom-sheet-text {
+      max-height: 78vh;
+      padding-bottom: max(32px, env(safe-area-inset-bottom));
+    }
+
+    .bottom-sheet-text .panel-header h3 {
+      letter-spacing: 0.08em;
+      text-indent: 0;
+    }
+
+    .bottom-sheet-text input#text-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid #ddd;
+      border-radius: 999px;
+      font-family: var(--serif);
+      font-size: 18px;
+      outline: none;
+      margin-bottom: 4px;
+      background: #fff;
+      color: var(--black);
+    }
+
+    .bottom-sheet-text input#text-input:focus {
+      border-color: var(--black);
+    }
+
+    .text-sheet-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      justify-content: center;
+    }
+
+    .text-sheet-actions button {
+      font-family: var(--serif);
+      padding: 10px 24px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .text-sheet-actions .cancel { background: #eee; }
+    .text-sheet-actions .delete { background: #fde8e8; color: #b32; }
+    .text-sheet-actions .confirm { background: var(--black); color: #fff; }
 
     body.decorate-sheet-open .app main {
       overflow: hidden;
@@ -1575,87 +1626,6 @@
 
     .social-icon:hover { background: rgba(127, 127, 127, 0.12); }
     .social-icon svg { width: 16px; height: 16px; fill: currentColor; }
-
-    /* Text input modal */
-    .text-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.4);
-      padding: 20px;
-    }
-
-    .text-modal.open { display: flex; }
-
-    .text-modal-inner {
-      background: #fff;
-      border-radius: 16px;
-      padding: 24px;
-      width: min(320px, 90vw);
-      position: relative;
-    }
-
-    .text-modal-inner .panel-header {
-      grid-template-columns: 1fr 32px;
-      margin-bottom: 12px;
-    }
-
-    .text-modal-inner .panel-header h3 {
-      grid-column: 1;
-      font-family: var(--serif);
-      font-size: 18px;
-      letter-spacing: 0;
-      text-indent: 0;
-      text-align: center;
-      margin: 0;
-    }
-
-    .text-modal-inner .panel-header .text-modal-close {
-      grid-column: 2;
-      justify-self: end;
-      width: 32px;
-      height: 32px;
-      font-size: 14px;
-    }
-
-    .text-modal-inner input {
-      width: 100%;
-      padding: 12px;
-      border: 1.5px solid #ddd;
-      border-radius: 8px;
-      font-family: var(--serif);
-      font-size: 18px;
-      outline: none;
-    }
-
-    .text-modal-inner input:focus { border-color: var(--black); }
-
-    #text-input.text-preview {
-      transition: color 0.15s, background 0.15s, font-family 0.15s;
-    }
-
-    .text-modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      justify-content: center;
-    }
-
-    .text-modal-actions button {
-      font-family: var(--serif);
-      padding: 10px 24px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 15px;
-    }
-
-    .text-modal-actions .cancel { background: #eee; }
-    .text-modal-actions .delete { background: #fde8e8; color: #b32; }
-    .text-modal-actions .confirm { background: var(--black); color: #fff; }
 
     /* Dragging piece on play screen */
     .floating-piece {
@@ -1823,21 +1793,18 @@
     </div>
     <div class="text-style-toolbar" id="inline-text-style"></div>
   </div>
-
-  <!-- Text modal -->
-  <div class="text-modal" id="text-modal">
-    <div class="text-modal-inner">
-      <div class="panel-header">
-        <h3 id="text-modal-title">Add Text</h3>
-        <button type="button" class="overlay-delete-bar-btn text-modal-close" id="text-modal-close" aria-label="Close text editor">✕</button>
-      </div>
-      <input type="text" id="text-input" class="text-preview" placeholder="Type something..." maxlength="40">
-      <div class="text-style-toolbar" id="modal-text-style"></div>
-      <div class="text-modal-actions">
-        <button class="cancel" id="text-cancel">Cancel</button>
-        <button class="delete" id="text-delete" hidden>Delete</button>
-        <button class="confirm" id="text-confirm">Add</button>
-      </div>
+  <div class="bottom-sheet bottom-sheet-text" id="text-sheet">
+    <div class="sheet-handle"></div>
+    <div class="panel-header">
+      <h3 id="text-modal-title">Add Text</h3>
+      <button type="button" class="overlay-delete-bar-btn sheet-close-btn" id="text-modal-close" aria-label="Close text editor">✕</button>
+    </div>
+    <input type="text" id="text-input" class="text-preview" placeholder="Type something..." maxlength="40">
+    <div class="text-style-toolbar" id="modal-text-style"></div>
+    <div class="text-sheet-actions">
+      <button type="button" class="cancel" id="text-cancel">Cancel</button>
+      <button type="button" class="delete" id="text-delete" hidden>Delete</button>
+      <button type="button" class="confirm" id="text-confirm">Add</button>
     </div>
   </div>
 
@@ -4219,7 +4186,7 @@
     const el = document.elementFromPoint(clientX, clientY);
     if (!el) return true;
     return !!el.closest(
-      'header, footer, .tool-row, .btn-stack, .bottom-sheet, .sheet-backdrop, #text-modal, .overlay-delete-bar, .color-tool-btn, .color-swatch'
+      'header, footer, .tool-row, .btn-stack, .bottom-sheet, .sheet-backdrop, .overlay-delete-bar, .color-tool-btn, .color-swatch'
     );
   }
 
@@ -4278,8 +4245,8 @@
   }
 
   function onEyedropperPointerUp(e) {
-    if (!eyedropperActive || eyedropperPicking) return;
-    if (e.target.closest('.color-tool-btn, .color-swatch, .bottom-sheet, .sheet-backdrop, #text-modal')) return;
+    if (!eyedropperActive || eyedropperPicking || eyedropperSuppressPick) return;
+    if (e.target.closest('.color-tool-btn, .color-swatch, .bottom-sheet, .sheet-backdrop')) return;
     handleEyedropperPick(e.clientX, e.clientY);
   }
 
@@ -4308,8 +4275,9 @@
     }
 
     if (eyedropperModalWasOpen) {
-      textModal.classList.add('open');
+      openDecorateSheet('text');
       applyPreviewInputStyle(textStyleDraft);
+      $('#text-input')?.focus();
     }
 
     if (eyedropperSheetWasOpen) {
@@ -4324,16 +4292,20 @@
 
   function beginCanvasEyedropperMode(activeBtn) {
     eyedropperActive = true;
-    eyedropperModalWasOpen = textModal.classList.contains('open');
-    if (eyedropperModalWasOpen) textModal.classList.remove('open');
+    eyedropperModalWasOpen = decorateSheets.text?.classList.contains('open');
+    if (eyedropperModalWasOpen) decorateSheets.text.classList.remove('open');
     eyedropperSheetWasOpen = rememberOpenDecorateSheet();
-    if (eyedropperSheetWasOpen) closeDecorateSheets();
+    if (eyedropperSheetWasOpen) hideDecorateSheetsForEyedropper();
 
     document.body.classList.add('eyedropper-active');
     $('#decorate-wrap')?.classList.add('eyedropper-mode');
     $('#decorate-stage')?.classList.add('eyedropper-mode');
     bindEyedropperTracking();
     activeBtn?.classList.add('active');
+    eyedropperSuppressPick = true;
+    requestAnimationFrame(() => {
+      eyedropperSuppressPick = false;
+    });
 
     const stage = $('#decorate-stage');
     if (stage) {
@@ -4557,6 +4529,7 @@
     stickers: $('#bottom-sheet'),
     style: $('#style-sheet'),
     textStyle: $('#text-style-sheet'),
+    text: $('#text-sheet'),
   };
   const sheetBackdrop = $('#sheet-backdrop');
   const btnStyle = $('#btn-style');
@@ -4573,6 +4546,16 @@
   }
 
   function closeDecorateSheets() {
+    const hadTextSheet = decorateSheets.text?.classList.contains('open');
+    Object.values(decorateSheets).forEach((sheet) => sheet?.classList.remove('open'));
+    sheetBackdrop?.classList.remove('open');
+    btnStyle?.classList.remove('active');
+    btnStickers?.classList.remove('active');
+    if (hadTextSheet) editingTextOverlay = null;
+    syncDecorateSheetUi();
+  }
+
+  function hideDecorateSheetsForEyedropper() {
     Object.values(decorateSheets).forEach((sheet) => sheet?.classList.remove('open'));
     sheetBackdrop?.classList.remove('open');
     btnStyle?.classList.remove('active');
@@ -4648,14 +4631,14 @@
 
   screens.decorate.addEventListener('click', (e) => {
     if (eyedropperActive) return;
-    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #btn-text, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
 
   screens.decorate.addEventListener('touchend', (e) => {
     if (eyedropperActive || overlayDrag) return;
-    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #text-modal, .bottom-sheet, .sheet-backdrop')) return;
+    if (e.target.closest('.overlay-item, #btn-style, #btn-stickers, #btn-share, #btn-save-image, #btn-text, .bottom-sheet, .sheet-backdrop')) return;
     deselectAllOverlays();
     closeStylePanel();
   });
@@ -4805,8 +4788,7 @@
   }
 
   function openTextModal(overlay = null) {
-    closeStylePanel();
-    closeSheet();
+    closeDecorateSheets();
     editingTextOverlay = overlay;
     const title = $('#text-modal-title');
     const confirmBtn = $('#text-confirm');
@@ -4832,7 +4814,7 @@
 
     syncTextStyleToolbarUI(modalTextStyle, textStyleDraft);
     applyPreviewInputStyle(textStyleDraft);
-    textModal.classList.add('open');
+    openDecorateSheet('text');
     input.focus();
     if (overlay) input.select();
   }
@@ -4999,15 +4981,22 @@
     }
   });
 
-  /* Text modal */
-  const textModal = $('#text-modal');
-
   function closeTextModal() {
-    textModal.classList.remove('open');
+    if (decorateSheets.text?.classList.contains('open')) {
+      decorateSheets.text.classList.remove('open');
+      if (!isDecorateSheetOpen()) sheetBackdrop?.classList.remove('open');
+      syncDecorateSheetUi();
+    }
     editingTextOverlay = null;
   }
 
-  $('#btn-text').addEventListener('click', () => openTextModal(null));
+  $('#btn-text').addEventListener('click', () => {
+    if (decorateSheets.text?.classList.contains('open')) {
+      closeTextModal();
+      return;
+    }
+    openTextModal(null);
+  });
   $('#text-modal-close').addEventListener('click', closeTextModal);
   $('#text-cancel').addEventListener('click', closeTextModal);
   $('#text-delete').addEventListener('click', () => {
