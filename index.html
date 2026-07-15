@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151711">
+  <meta name="app-version" content="202607151718">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -3349,23 +3349,27 @@
     ctx.roundRect(0, 0, state.boardW, state.boardH, r);
     ctx.clip();
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, state.boardW, state.boardH);
 
-    /* Ghost photo only inside jigsaw shapes — prevents side gutter strips on wide grids (4×3). */
-    ctx.save();
-    HeadbreakerGen.clipAllPiecePaths(ctx, rows, cols, cellW, cellH);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    ctx.fillRect(0, 0, state.boardW, state.boardH);
-    if (img && img.width) {
-      ctx.save();
-      ctx.globalAlpha = 0.28;
-      ctx.drawImage(img, 0, 0, state.boardW, state.boardH);
-      ctx.restore();
+    /* Faint ghost photo inside empty slots only — no solid white piece fills. */
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const piece = state.pieces.find(p => p.row === row && p.col === col);
+        if (piece && piece.locked) continue;
+        ctx.save();
+        HeadbreakerGen.buildPiecePath(ctx, row, col, col * cellW, row * cellH, cellW, cellH);
+        ctx.clip();
+        if (img && img.width) {
+          ctx.globalAlpha = 0.34;
+          ctx.drawImage(img, 0, 0, state.boardW, state.boardH);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      }
     }
-    ctx.restore();
 
-    /* Empty slots — dashed outline only (not a photo duplicate) */
+    /* Empty slots — dashed outline only */
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const piece = state.pieces.find(p => p.row === row && p.col === col);
@@ -3396,9 +3400,11 @@
       }
     }
 
-    /* Single thin stroke pass on every cell — uniform seams like reference */
+    /* Seam strokes on placed pieces only — avoids solid white blocks on empty slots */
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
+        const piece = state.pieces.find(p => p.row === row && p.col === col);
+        if (!piece || !piece.locked) continue;
         HeadbreakerGen.strokePiecePath(ctx, row, col, col * cellW, row * cellH, cellW, cellH);
       }
     }
