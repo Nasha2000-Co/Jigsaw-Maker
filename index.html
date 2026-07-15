@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151354">
+  <meta name="app-version" content="202607151356">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -2703,6 +2703,9 @@
     const lockedSet = preserveProgress
       ? new Set(state.pieces.filter(p => p.locked).map(p => `${p.row},${p.col}`))
       : null;
+    const savedTray = preserveProgress
+      ? new Map(state.pieces.filter(p => !p.locked).map(p => [`${p.row},${p.col}`, { trayX: p.trayX, trayY: p.trayY }]))
+      : null;
 
     const { rows, cols } = getOrientedGrid(state.gridKey);
     state.rows = rows;
@@ -2759,7 +2762,19 @@
       }
     }
 
-    scatterTrayPieces({ randomize: true });
+    if (savedTray && savedTray.size) {
+      state.pieces.forEach((p) => {
+        if (p.locked) return;
+        const saved = savedTray.get(`${p.row},${p.col}`);
+        if (saved) {
+          p.trayX = saved.trayX;
+          p.trayY = saved.trayY;
+        }
+      });
+      scatterTrayPieces({ randomize: false });
+    } else {
+      scatterTrayPieces({ randomize: true });
+    }
     resizeCanvases();
     drawBoard();
     drawTray();
@@ -2785,38 +2800,30 @@
     return arr;
   }
 
-  function spreadTrayPieces(unlocked, { shuffle = false, useGrid = false } = {}) {
+  function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
     const maxTrayW = Math.min(340, window.innerWidth - 40);
     const pad = 10;
+    const count = unlocked.length;
+    if (!count) return;
 
-    planTrayDimensions(unlocked.length);
     if (shuffle) shuffleInPlace(unlocked);
 
-    const count = unlocked.length;
-    const shortViewport = window.innerHeight < 740;
-    const rows = shortViewport ? 1 : (count <= 5 ? 1 : count <= 10 ? 2 : 3);
-    const cols = Math.ceil(count / rows);
-    const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / Math.max(cols, 1)));
-    const rowH = shortViewport ? 68 : 74;
+    const scatterRows = count <= 3 ? 1 : count <= 8 ? 2 : 3;
+    const scatterCols = Math.ceil(count / scatterRows);
+    state.trayW = Math.max(180, Math.min(maxTrayW, pad * 2 + scatterCols * 56 + 20));
+    state.trayH = Math.max(100, pad * 2 + scatterRows * 78 + (count > 6 ? 16 : 0));
 
     const occupied = [];
     const overlaps = (x, y, w, h) =>
-      occupied.some((o) => !(x + w <= o.x + 6 || x >= o.x + o.w - 6 || y + h <= o.y + 6 || y >= o.y + o.h - 6));
+      occupied.some((o) => !(x + w <= o.x + 4 || x >= o.x + o.w - 4 || y + h <= o.y + 4 || y >= o.y + o.h - 4));
+
+    const slotCols = Math.max(2, Math.ceil(Math.sqrt(count * 1.35)));
 
     unlocked.forEach((p, i) => {
       const { dw, dh } = getTrayPieceDisplaySize(p);
-
-      if (useGrid) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        p.trayX = pad + col * slotW + Math.max(0, (slotW - dw) / 2);
-        p.trayY = pad + row * rowH + Math.max(0, (rowH - dh) / 2);
-        occupied.push({ x: p.trayX, y: p.trayY, w: dw, h: dh });
-        return;
-      }
-
       let placed = false;
-      for (let attempt = 0; attempt < 60 && !placed; attempt++) {
+
+      for (let attempt = 0; attempt < 80 && !placed; attempt++) {
         const x = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
         const y = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
         if (!overlaps(x, y, dw, dh)) {
@@ -2828,10 +2835,13 @@
       }
 
       if (!placed) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        p.trayX = pad + col * slotW + Math.max(0, (slotW - dw) / 2);
-        p.trayY = pad + row * rowH + Math.max(0, (rowH - dh) / 2);
+        const col = i % slotCols;
+        const row = Math.floor(i / slotCols);
+        const slotW = (state.trayW - pad * 2) / slotCols;
+        const slotRows = Math.ceil(count / slotCols);
+        const slotH = (state.trayH - pad * 2) / slotRows;
+        p.trayX = pad + col * slotW + Math.max(0, (slotW - dw) / 2) + (Math.random() - 0.5) * 10;
+        p.trayY = pad + row * slotH + Math.max(0, (slotH - dh) / 2) + (Math.random() - 0.5) * 8;
         occupied.push({ x: p.trayX, y: p.trayY, w: dw, h: dh });
       }
     });
@@ -2849,10 +2859,8 @@
       return;
     }
 
-    if (randomize) {
-      spreadTrayPieces(unlocked, { shuffle: true, useGrid: false });
-    } else if (relayout) {
-      spreadTrayPieces(unlocked, { shuffle: false, useGrid: true });
+    if (randomize || relayout) {
+      spreadTrayPieces(unlocked, { shuffle: true });
     } else {
       let maxX = pad;
       let maxY = pad;
@@ -4954,8 +4962,8 @@
     if (state.screen === 'upload') {
       layoutUploadCard();
     }
-    if (state.screen === 'play' && state.image) {
-      initPuzzle({ preserveProgress: true });
+    if (state.screen === 'play' && state.image && state.pieces.length) {
+      refreshPlayLayout({ preserveProgress: true });
     }
     if (state.screen === 'decorate' && state.decorateReady) {
       refreshDecorateLayout();
