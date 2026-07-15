@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151901">
+  <meta name="app-version" content="202607151910">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -3811,9 +3811,13 @@
 
   /** Hi-res puzzle raster for Save / Share only — does not affect play or decorate preview. */
   function flattenPuzzleForExport() {
+    if (!state.imageHiRes?.width) {
+      return state.assembledCanvas || flattenPuzzle();
+    }
+
     const scale = EXPORT_PUZZLE_SCALE;
     const { rows, cols } = state;
-    const img = state.imageHiRes || state.image;
+    const img = state.imageHiRes;
     const nativeW = PUZZLE_WIDTH * scale;
     const nativeH = PUZZLE_HEIGHT * scale;
     const nativeCellW = nativeW / cols;
@@ -3835,12 +3839,17 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, nativeW, nativeH);
 
-    ctx.save();
-    HeadbreakerGen.clipAllPiecePaths(ctx, rows, cols, nativeCellW, nativeCellH);
-    if (img?.width) {
-      ctx.drawImage(img, 0, 0, nativeW, nativeH);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const piece = state.pieces.find((p) => p.row === row && p.col === col);
+        if (!piece) continue;
+        ctx.save();
+        HeadbreakerGen.buildPiecePath(ctx, row, col, col * nativeCellW, row * nativeCellH, nativeCellW, nativeCellH);
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, nativeW, nativeH);
+        ctx.restore();
+      }
     }
-    ctx.restore();
 
     ctx.strokeStyle = HeadbreakerGen.getStrokeColor();
     ctx.lineWidth = lineW;
