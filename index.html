@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151659">
+  <meta name="app-version" content="202607151701">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -700,6 +700,34 @@
     .bottom-sheet .panel-header .sheet-close-btn {
       grid-column: 3;
       justify-self: end;
+    }
+
+    #text-style-sheet .panel-header {
+      grid-template-columns: 1fr auto 32px;
+      align-items: center;
+    }
+
+    #text-style-sheet .panel-header h3 {
+      grid-column: 1;
+      justify-self: start;
+    }
+
+    .text-style-wording-btn {
+      grid-column: 2;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1.5px solid var(--black);
+      background: #fff;
+      color: var(--black);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #text-style-sheet .panel-header .sheet-close-btn {
+      grid-column: 3;
     }
 
     .app:has(#screen-play.active) .btn-back {
@@ -1794,6 +1822,7 @@
     <div class="sheet-handle"></div>
     <div class="panel-header">
       <h3>TEXT STYLE</h3>
+      <button type="button" class="text-style-wording-btn" id="text-style-edit-wording">Edit wording</button>
       <button type="button" class="overlay-delete-bar-btn sheet-close-btn" id="text-style-sheet-back" aria-label="Close text styles">✕</button>
     </div>
     <div class="text-style-toolbar" id="inline-text-style"></div>
@@ -4871,6 +4900,12 @@
   $('#sheet-back')?.addEventListener('click', closeSheet);
   sheetBackdrop?.addEventListener('click', closeSheet);
   $('#text-style-sheet-back')?.addEventListener('click', closeDecorateSheets);
+  $('#text-style-edit-wording')?.addEventListener('click', () => {
+    const overlay = state.selectedOverlay;
+    if (overlay?.type !== 'text') return;
+    closeTextStyleSheet();
+    openTextModal(overlay);
+  });
 
   let overlayId = 0;
 
@@ -4970,7 +5005,7 @@
     state.overlays.forEach(o => o.el.classList.remove('selected', 'show-delete'));
     state.selectedOverlay = overlay;
     if (overlay) overlay.el.classList.add('selected');
-    showTextStyleBar(overlay);
+    else closeTextStyleSheet();
   }
 
   function removeOverlay(overlay) {
@@ -5002,12 +5037,13 @@
     editBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       selectOverlay(overlay);
-      openTextModal(overlay);
+      showTextStyleBar(overlay);
     });
 
     function onStart(e) {
       if (e.target.closest('.delete-btn, .edit-btn, .resize-handle, .rotate-handle')) return;
       e.stopPropagation();
+      closeTextStyleSheet();
       selectOverlay(overlay);
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
       const cy = e.touches ? e.touches[0].clientY : e.clientY;
