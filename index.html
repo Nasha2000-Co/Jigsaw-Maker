@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151910">
+  <meta name="app-version" content="202607151914">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -1843,7 +1843,7 @@
   </div>
 
   <img class="floating-piece" id="floating-piece" alt="" style="display:none">
-  <div id="hb-engine" aria-hidden="true" style="position:fixed;left:-10000px;top:0;width:300px;height:400px;overflow:hidden;pointer-events:none;"></div>
+  <div id="hb-engine" aria-hidden="true" style="position:fixed;left:-10000px;top:0;width:600px;height:800px;overflow:hidden;pointer-events:none;"></div>
 
   <script src="vendor/konva.min.js"></script>
   <script src="vendor/headbreaker.js"></script>
@@ -1869,8 +1869,8 @@
      JIGSAW PIECE SHAPES — headbreaker (Rounded outline)
      ============================================================ */
   const HeadbreakerGen = (() => {
-    const PUZZLE_W = 300;
-    const PUZZLE_H = 400;
+    const PUZZLE_W = 600;
+    const PUZZLE_H = 800;
     const BORDER_FILL = 12;
     const PROXIMITY = 18;
     const LINE_SOFTNESS = 0.18;
@@ -2163,6 +2163,7 @@
     screen: 'upload',
     image: null,
     imageHiRes: null,
+    imageHiResScale: null,
     imageUrl: null,
     gridKey: '3x3',
     puzzleCompletedTracked: false,
@@ -2382,8 +2383,12 @@
 
   const PUZZLE_WIDTH = 300;
   const PUZZLE_HEIGHT = 400;
-  /** Hi-res puzzle source for Save / Share export only — gameplay stays 300×400. */
-  const EXPORT_PUZZLE_SCALE = 3;
+  /** Internal puzzle raster — 2× layout size for sharper play / decorate / export. */
+  const PUZZLE_RENDER_SCALE = 2;
+  const PUZZLE_RENDER_WIDTH = PUZZLE_WIDTH * PUZZLE_RENDER_SCALE;
+  const PUZZLE_RENDER_HEIGHT = PUZZLE_HEIGHT * PUZZLE_RENDER_SCALE;
+  /** Max export raster relative to render size (1200×1600 cap, no upscale past source crop). */
+  const EXPORT_PUZZLE_MAX_SCALE = 2;
 
   /** One layout rule for every puzzle frame — always 300×400 portrait (3:4). */
   function layoutPuzzleFrame(maxW, maxH, srcW = PUZZLE_WIDTH, srcH = PUZZLE_HEIGHT) {
@@ -2417,8 +2422,23 @@
   const uploadPreview = $('#upload-preview');
   const btnStart = $('#btn-start');
 
+  /** Crop rect for puzzle aspect (cover) in source image space. */
+  function getPuzzleCropRect(sourceImg, targetW, targetH) {
+    const dstAspect = targetW / targetH;
+    const srcAspect = sourceImg.width / sourceImg.height;
+    if (srcAspect > dstAspect) {
+      const sh = sourceImg.height;
+      const sw = sh * dstAspect;
+      return { sx: (sourceImg.width - sw) / 2, sy: 0, sw, sh };
+    }
+    const sw = sourceImg.width;
+    const sh = sw / dstAspect;
+    return { sx: 0, sy: (sourceImg.height - sh) / 2, sw, sh };
+  }
+
   /** Crop + resize uploaded photo to puzzle aspect (cover). */
-  function cropAndResizePuzzleImage(sourceImg, targetW, targetH, jpegQuality = 0.92) {
+  function cropAndResizePuzzleImage(sourceImg, targetW, targetH, options = {}) {
+    const { quality = 0.92, format = 'jpeg' } = options;
     const canvas = document.createElement('canvas');
     canvas.width = targetW;
     canvas.height = targetH;
@@ -2426,42 +2446,41 @@
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    const dstAspect = targetW / targetH;
-    const srcAspect = sourceImg.width / sourceImg.height;
-    let sx, sy, sw, sh;
-
-    if (srcAspect > dstAspect) {
-      sh = sourceImg.height;
-      sw = sh * dstAspect;
-      sx = (sourceImg.width - sw) / 2;
-      sy = 0;
-    } else {
-      sw = sourceImg.width;
-      sh = sw / dstAspect;
-      sx = 0;
-      sy = (sourceImg.height - sh) / 2;
-    }
-
+    const { sx, sy, sw, sh } = getPuzzleCropRect(sourceImg, targetW, targetH);
     ctx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, targetW, targetH);
 
     return new Promise((resolve) => {
       const resized = new Image();
       resized.onload = () => resolve(resized);
-      resized.src = canvas.toDataURL('image/jpeg', jpegQuality);
+      resized.src = format === 'png'
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', quality);
     });
   }
 
-  function resizeImageToPuzzleSize(sourceImg) {
-    return cropAndResizePuzzleImage(sourceImg, PUZZLE_WIDTH, PUZZLE_HEIGHT, 0.92);
+  function getExportPuzzleTargetSize(sourceImg) {
+    const { sw, sh } = getPuzzleCropRect(sourceImg, PUZZLE_RENDER_WIDTH, PUZZLE_RENDER_HEIGHT);
+    const maxScale = Math.min(
+      EXPORT_PUZZLE_MAX_SCALE,
+      sw / PUZZLE_RENDER_WIDTH,
+      sh / PUZZLE_RENDER_HEIGHT
+    );
+    const scale = Math.max(1, maxScale);
+    return {
+      w: Math.round(PUZZLE_RENDER_WIDTH * scale),
+      h: Math.round(PUZZLE_RENDER_HEIGHT * scale),
+      scale,
+    };
   }
 
-  function resizeImageToExportPuzzleSize(sourceImg) {
-    return cropAndResizePuzzleImage(
-      sourceImg,
-      PUZZLE_WIDTH * EXPORT_PUZZLE_SCALE,
-      PUZZLE_HEIGHT * EXPORT_PUZZLE_SCALE,
-      0.95
-    );
+  function resizeImageToPuzzleSize(sourceImg) {
+    return cropAndResizePuzzleImage(sourceImg, PUZZLE_RENDER_WIDTH, PUZZLE_RENDER_HEIGHT, { quality: 0.95 });
+  }
+
+  async function resizeImageToExportPuzzleSize(sourceImg) {
+    const { w, h, scale } = getExportPuzzleTargetSize(sourceImg);
+    state.imageHiResScale = scale;
+    return cropAndResizePuzzleImage(sourceImg, w, h, { format: 'png' });
   }
 
   fileInput.addEventListener('change', async (e) => {
@@ -2470,6 +2489,7 @@
     if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
     state.imageUrl = URL.createObjectURL(file);
     state.imageHiRes = null;
+    state.imageHiResScale = null;
     const img = new Image();
     img.onload = async () => {
       state.image = await resizeImageToPuzzleSize(img);
@@ -2805,10 +2825,24 @@
   }
 
   function refreshDecoratePuzzleCanvas() {
-    const flat = flattenPuzzle();
+    state.assembledCanvas = flattenPuzzle();
+    paintDecorateCanvasFromFlat();
+  }
+
+  function getDecoratePuzzleRaster() {
+    if (state.imageHiRes?.width) return flattenPuzzleForExport();
+    return state.assembledCanvas || flattenPuzzle();
+  }
+
+  function paintDecorateCanvasFromFlat() {
+    const flat = getDecoratePuzzleRaster();
+    decorateCanvas.width = flat.width;
+    decorateCanvas.height = flat.height;
     const ctx = decorateCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, flat.width, flat.height);
     ctx.drawImage(flat, 0, 0);
-    state.assembledCanvas = flat;
   }
 
   function applyStrokeColor(hex) {
@@ -3755,8 +3789,8 @@
   function flattenPuzzle() {
     const { rows, cols, boardW, boardH } = state;
     const img = state.image;
-    const nativeW = PUZZLE_WIDTH;
-    const nativeH = PUZZLE_HEIGHT;
+    const nativeW = PUZZLE_RENDER_WIDTH;
+    const nativeH = PUZZLE_RENDER_HEIGHT;
     const scaleX = nativeW / boardW;
     const scaleY = nativeH / boardH;
     const nativeCellW = nativeW / cols;
@@ -3815,11 +3849,11 @@
       return state.assembledCanvas || flattenPuzzle();
     }
 
-    const scale = EXPORT_PUZZLE_SCALE;
+    const scale = state.imageHiResScale || (state.imageHiRes.width / PUZZLE_RENDER_WIDTH);
     const { rows, cols } = state;
     const img = state.imageHiRes;
-    const nativeW = PUZZLE_WIDTH * scale;
-    const nativeH = PUZZLE_HEIGHT * scale;
+    const nativeW = Math.round(PUZZLE_RENDER_WIDTH * scale);
+    const nativeH = Math.round(PUZZLE_RENDER_HEIGHT * scale);
     const nativeCellW = nativeW / cols;
     const nativeCellH = nativeH / rows;
     const lineW = HeadbreakerGen.getStrokeWidth() * scale;
@@ -3994,13 +4028,11 @@
   }
 
   function setupDecorateScreen({ resetOverlays = true } = {}) {
-    const flat = flattenPuzzle();
-    decorateCanvas.width = PUZZLE_WIDTH;
-    decorateCanvas.height = PUZZLE_HEIGHT;
-    decorateCanvas.getContext('2d').drawImage(flat, 0, 0, PUZZLE_WIDTH, PUZZLE_HEIGHT);
-    refreshDecorateLayout(flat);
+    state.assembledCanvas = flattenPuzzle();
+    paintDecorateCanvasFromFlat();
+    refreshDecorateLayout(state.assembledCanvas);
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => refreshDecorateLayout(flat));
+      requestAnimationFrame(() => refreshDecorateLayout(state.assembledCanvas));
     });
 
     const overlayLayer = $('#overlay-layer');
