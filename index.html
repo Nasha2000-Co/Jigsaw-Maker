@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151348">
+  <meta name="app-version" content="202607151352">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -843,9 +843,31 @@
 
     .export-bg-colors {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 8px;
+      align-items: flex-start;
+    }
+
+    .color-picker-block {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .color-tools {
+      display: flex;
+      gap: 10px;
       align-items: center;
+      flex-shrink: 0;
+    }
+
+    #stroke-color-swatches {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start;
     }
 
     .bottom-sheet .color-swatches {
@@ -1009,7 +1031,21 @@
       pointer-events: none;
     }
 
-    .color-swatch-custom.active .color-swatch-plus { opacity: 0; }
+    .color-swatch-custom.active .color-swatch-plus { opacity: 1; }
+
+    .color-swatch-custom::after {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      background: var(--custom-selected, transparent);
+      pointer-events: none;
+    }
+
+    .color-swatch-custom .color-swatch-plus {
+      position: relative;
+      z-index: 1;
+    }
 
     .color-input-overlay {
       position: absolute;
@@ -1024,6 +1060,16 @@
       -webkit-appearance: none;
       appearance: none;
       background: transparent;
+    }
+
+    .color-input-offscreen {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .color-input-hidden {
@@ -2410,10 +2456,11 @@
       );
     });
     const customBtn = swatchRow.querySelector('.export-bg-colors .color-swatch-custom');
-    if (customBtn) {
-      customBtn.classList.toggle('active', state.exportBgMode === 'color' && isCustom);
-      customBtn.style.background = state.exportBgMode === 'color' && isCustom ? color : '';
-    }
+    syncCustomColorSwatch(
+      customBtn,
+      state.exportBgMode === 'color' && isCustom,
+      color
+    );
     const colorInput = swatchRow.querySelector('[data-export-bg-color-input]');
     if (colorInput) colorInput.value = color;
   }
@@ -2435,17 +2482,19 @@
     swatchRow.innerHTML = `
       <div class="export-bg-images">${imageSwatches}</div>
       <div class="export-bg-colors">
-        ${colorSwatches}
-        <label class="color-swatch color-swatch-custom" title="Custom background color">
-          <input type="color" class="color-input-overlay" data-export-bg-color-input value="#f5ebe0" aria-label="Choose custom background color">
-          <span class="color-swatch-plus">+</span>
-        </label>
-        <button type="button" class="color-tool-btn eyedropper-btn" data-export-bg-eyedropper title="Pick color from photo">${EYEDROPPER_ICON}</button>
+        <div class="color-swatches">${colorSwatches}</div>
+        <div class="color-tools">
+          <button type="button" class="color-swatch color-swatch-custom" data-open-export-bg-color title="Custom background color">
+            <span class="color-swatch-plus">+</span>
+          </button>
+          <input type="color" class="color-input-offscreen" data-export-bg-color-input value="#f5ebe0" tabindex="-1" aria-hidden="true">
+          <button type="button" class="color-tool-btn eyedropper-btn" data-export-bg-eyedropper title="Pick color from photo">${EYEDROPPER_ICON}</button>
+        </div>
       </div>
     `;
 
     swatchRow.addEventListener('click', (e) => {
-      if (e.target.closest('.color-input-overlay, .color-swatch-custom')) return;
+      if (e.target.closest('.color-tools')) return;
       const imageSwatch = e.target.closest('[data-export-bg-image]');
       if (imageSwatch) {
         applyExportBgImage(imageSwatch.dataset.exportBgImage);
@@ -2454,18 +2503,20 @@
       const swatch = e.target.closest('[data-export-bg-color]');
       if (swatch) {
         applyExportBgColor(swatch.dataset.exportBgColor);
-        return;
-      }
-      if (e.target.closest('[data-export-bg-eyedropper]')) {
-        e.preventDefault();
-        startCanvasEyedropper({ type: 'exportBg' });
       }
     });
 
     const exportBgColorInput = swatchRow.querySelector('[data-export-bg-color-input]');
-    const onExportBgColorPick = (value) => applyExportBgColor(value);
-    exportBgColorInput?.addEventListener('input', (e) => onExportBgColorPick(e.target.value));
-    exportBgColorInput?.addEventListener('change', (e) => onExportBgColorPick(e.target.value));
+    wireColorPickerButton(
+      swatchRow.querySelector('[data-open-export-bg-color]'),
+      exportBgColorInput,
+      () => normalizeHexColor(state.exportBgColor),
+      (value) => applyExportBgColor(value)
+    );
+    wireEyedropperButton(
+      swatchRow.querySelector('[data-export-bg-eyedropper]'),
+      (btn) => startCanvasEyedropper({ type: 'exportBg', activeBtn: btn })
+    );
 
     syncExportBgUI();
   }
@@ -2519,10 +2570,7 @@
     });
 
     const customBtn = row.querySelector('.color-swatch-custom');
-    if (customBtn) {
-      customBtn.classList.toggle('active', isCustom);
-      customBtn.style.background = isCustom ? color : '';
-    }
+    syncCustomColorSwatch(customBtn, isCustom, color);
 
     const colorInput = row.querySelector('[data-stroke-color-input]');
     if (colorInput) colorInput.value = color;
@@ -2538,31 +2586,33 @@
     ).join('');
 
     row.innerHTML = `
-      ${swatches}
-      <label class="color-swatch color-swatch-custom" title="Custom stroke color">
-        <input type="color" class="color-input-overlay" data-stroke-color-input value="#ffffff" aria-label="Choose custom stroke color">
-        <span class="color-swatch-plus">+</span>
-      </label>
-      <button type="button" class="color-tool-btn eyedropper-btn" data-stroke-eyedropper title="Pick stroke color from photo">${EYEDROPPER_ICON}</button>
+      <div class="color-swatches">${swatches}</div>
+      <div class="color-tools">
+        <button type="button" class="color-swatch color-swatch-custom" data-open-stroke-color title="Custom stroke color">
+          <span class="color-swatch-plus">+</span>
+        </button>
+        <input type="color" class="color-input-offscreen" data-stroke-color-input value="#ffffff" tabindex="-1" aria-hidden="true">
+        <button type="button" class="color-tool-btn eyedropper-btn" data-stroke-eyedropper title="Pick stroke color from photo">${EYEDROPPER_ICON}</button>
+      </div>
     `;
 
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.color-input-overlay, .color-swatch-custom')) return;
+      if (e.target.closest('.color-tools')) return;
       const swatch = e.target.closest('.color-swatch[data-stroke-color]');
-      if (swatch) {
-        applyStrokeColor(swatch.dataset.strokeColor);
-        return;
-      }
-      if (e.target.closest('[data-stroke-eyedropper]')) {
-        e.preventDefault();
-        startCanvasEyedropper({ type: 'stroke' });
-      }
+      if (swatch) applyStrokeColor(swatch.dataset.strokeColor);
     });
 
     const strokeColorInput = row.querySelector('[data-stroke-color-input]');
-    const onStrokeColorPick = (value) => applyStrokeColor(value);
-    strokeColorInput?.addEventListener('input', (e) => onStrokeColorPick(e.target.value));
-    strokeColorInput?.addEventListener('change', (e) => onStrokeColorPick(e.target.value));
+    wireColorPickerButton(
+      row.querySelector('[data-open-stroke-color]'),
+      strokeColorInput,
+      () => normalizeHexColor(state.strokeColor),
+      (value) => applyStrokeColor(value)
+    );
+    wireEyedropperButton(
+      row.querySelector('[data-stroke-eyedropper]'),
+      (btn) => startCanvasEyedropper({ type: 'stroke', activeBtn: btn })
+    );
 
     HeadbreakerGen.setStrokeColor(hexToStrokeRgba(state.strokeColor));
     syncStrokeColorUI();
@@ -3291,6 +3341,45 @@
   /* ============================================================
      DECORATE — STICKERS & TEXT
      ============================================================ */
+  function openNativeColorPicker(input) {
+    if (!input) return;
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch (_) {}
+    input.click();
+  }
+
+  function syncCustomColorSwatch(swatchEl, isActive, color) {
+    if (!swatchEl) return;
+    swatchEl.classList.toggle('active', isActive);
+    swatchEl.style.setProperty('--custom-selected', isActive && color ? color : 'transparent');
+  }
+
+  function wireColorPickerButton(btn, input, getValue, onPick) {
+    if (!btn || !input) return;
+    const apply = () => onPick(input.value);
+    input.addEventListener('input', apply);
+    input.addEventListener('change', apply);
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (getValue) input.value = getValue();
+      openNativeColorPicker(input);
+    });
+  }
+
+  function wireEyedropperButton(btn, onStart) {
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onStart(btn);
+    });
+  }
+
   const TEXT_COLORS = [
     { id: 'white', value: '#ffffff' },
     { id: 'black', value: '#1a1a1a' },
@@ -3705,10 +3794,6 @@
     beginCanvasEyedropperMode(activeBtn);
   }
 
-  function startEyedropper(getStyle, setStyle, toolbarEl, target = 'color') {
-    startCanvasEyedropper({ getStyle, setStyle, toolbarEl, target });
-  }
-
   async function handleEyedropperPick(clientX, clientY) {
     if (!eyedropperActive || eyedropperPicking) return;
     if (isEyedropperBlockedTarget(clientX, clientY)) return;
@@ -3737,13 +3822,15 @@
     return `
       <div class="style-row">
         <span class="style-label">Color</span>
-        <div class="color-swatches">
-          ${swatches}
-          <label class="color-swatch color-swatch-custom" title="Custom color">
-            <input type="color" class="color-input-overlay" data-color-input value="#ffffff" aria-label="Choose custom text color">
-            <span class="color-swatch-plus">+</span>
-          </label>
-          <button type="button" class="color-tool-btn eyedropper-btn" data-eyedropper title="Pick from photo">${EYEDROPPER_ICON}</button>
+        <div class="color-picker-block">
+          <div class="color-swatches">${swatches}</div>
+          <div class="color-tools">
+            <button type="button" class="color-swatch color-swatch-custom" data-open-text-color title="Custom color">
+              <span class="color-swatch-plus">+</span>
+            </button>
+            <input type="color" class="color-input-offscreen" data-color-input value="#ffffff" tabindex="-1" aria-hidden="true">
+            <button type="button" class="color-tool-btn eyedropper-btn" data-eyedropper title="Pick from photo">${EYEDROPPER_ICON}</button>
+          </div>
         </div>
       </div>
       <div class="style-row">
@@ -3752,14 +3839,18 @@
       </div>
       <div class="style-row">
         <span class="style-label">Bg</span>
-        <div class="color-swatches">
-          <button type="button" class="color-swatch color-swatch-none" data-bg-none title="No background"></button>
-          ${bgSwatches}
-          <label class="color-swatch color-swatch-custom" title="Custom background">
-            <input type="color" class="color-input-overlay" data-bg-color-input value="#1a1a1a" aria-label="Choose custom text background color">
-            <span class="color-swatch-plus">+</span>
-          </label>
-          <button type="button" class="color-tool-btn eyedropper-btn" data-bg-eyedropper title="Pick background from photo">${EYEDROPPER_ICON}</button>
+        <div class="color-picker-block">
+          <div class="color-swatches">
+            <button type="button" class="color-swatch color-swatch-none" data-bg-none title="No background"></button>
+            ${bgSwatches}
+          </div>
+          <div class="color-tools">
+            <button type="button" class="color-swatch color-swatch-custom" data-open-text-bg-color title="Custom background">
+              <span class="color-swatch-plus">+</span>
+            </button>
+            <input type="color" class="color-input-offscreen" data-bg-color-input value="#1a1a1a" tabindex="-1" aria-hidden="true">
+            <button type="button" class="color-tool-btn eyedropper-btn" data-bg-eyedropper title="Pick background from photo">${EYEDROPPER_ICON}</button>
+          </div>
         </div>
       </div>
     `;
@@ -3776,11 +3867,8 @@
       btn.classList.toggle('active', normalizeHexColor(btn.dataset.color) === color);
     });
 
-    const customColorBtn = toolbarEl.querySelector('[data-color-input]')?.closest('.color-swatch-custom');
-    if (customColorBtn) {
-      customColorBtn.classList.toggle('active', isCustomColor);
-      customColorBtn.style.background = isCustomColor ? color : '';
-    }
+    const customColorBtn = toolbarEl.querySelector('[data-open-text-color]');
+    syncCustomColorSwatch(customColorBtn, isCustomColor, color);
 
     const colorInput = toolbarEl.querySelector('[data-color-input]');
     if (colorInput) colorInput.value = color;
@@ -3796,11 +3884,8 @@
       btn.classList.toggle('active', bgColor === btn.dataset.bgColor);
     });
 
-    const customBgBtn = toolbarEl.querySelector('[data-bg-color-input]')?.closest('.color-swatch-custom');
-    if (customBgBtn) {
-      customBgBtn.classList.toggle('active', !!isCustomBg);
-      customBgBtn.style.background = isCustomBg ? bgColor : '';
-    }
+    const customBgBtn = toolbarEl.querySelector('[data-open-text-bg-color]');
+    syncCustomColorSwatch(customBgBtn, !!isCustomBg, bgColor ? rgbaToHex(bgColor) : '');
 
     const bgColorInput = toolbarEl.querySelector('[data-bg-color-input]');
     if (bgColorInput) bgColorInput.value = bgColor ? rgbaToHex(bgColor) : '#1a1a1a';
@@ -3834,30 +3919,35 @@
     const colorInput = toolbarEl.querySelector('[data-color-input]');
     const bgColorInput = toolbarEl.querySelector('[data-bg-color-input]');
 
-    colorInput.addEventListener('input', () => {
-      applyToolbarColor(toolbarEl, getStyle, setStyle, colorInput.value);
-    });
-    colorInput.addEventListener('change', () => {
-      applyToolbarColor(toolbarEl, getStyle, setStyle, colorInput.value);
-    });
-
-    bgColorInput.addEventListener('input', () => {
-      applyToolbarBgColor(toolbarEl, getStyle, setStyle, bgColorInput.value);
-    });
-    bgColorInput.addEventListener('change', () => {
-      applyToolbarBgColor(toolbarEl, getStyle, setStyle, bgColorInput.value);
-    });
+    wireColorPickerButton(
+      toolbarEl.querySelector('[data-open-text-color]'),
+      colorInput,
+      () => normalizeHexColor(getStyle().color),
+      (value) => applyToolbarColor(toolbarEl, getStyle, setStyle, value)
+    );
+    wireColorPickerButton(
+      toolbarEl.querySelector('[data-open-text-bg-color]'),
+      bgColorInput,
+      () => {
+        const curBg = normalizeBgColor(getStyle().bgColor);
+        return curBg ? rgbaToHex(curBg) : '#1a1a1a';
+      },
+      (value) => applyToolbarBgColor(toolbarEl, getStyle, setStyle, value)
+    );
+    wireEyedropperButton(
+      toolbarEl.querySelector('[data-eyedropper]'),
+      (btn) => startCanvasEyedropper({ getStyle, setStyle, toolbarEl, target: 'color', activeBtn: btn })
+    );
+    wireEyedropperButton(
+      toolbarEl.querySelector('[data-bg-eyedropper]'),
+      (btn) => startCanvasEyedropper({ getStyle, setStyle, toolbarEl, target: 'bg', activeBtn: btn })
+    );
 
     toolbarEl.addEventListener('click', (e) => {
-      if (e.target.closest('.color-input-overlay, .color-swatch-custom')) return;
+      if (e.target.closest('.color-tools')) return;
       const swatch = e.target.closest('.color-swatch[data-color]');
       if (swatch) {
         applyToolbarColor(toolbarEl, getStyle, setStyle, swatch.dataset.color);
-        return;
-      }
-      if (e.target.closest('[data-eyedropper]')) {
-        e.preventDefault();
-        startEyedropper(getStyle, setStyle, toolbarEl, 'color');
         return;
       }
       const fontBtn = e.target.closest('.font-btn');
@@ -3874,11 +3964,6 @@
       const bgSwatch = e.target.closest('.color-swatch[data-bg-color]');
       if (bgSwatch) {
         applyToolbarBgPreset(toolbarEl, getStyle, setStyle, bgSwatch.dataset.bgColor);
-        return;
-      }
-      if (e.target.closest('[data-bg-eyedropper]')) {
-        e.preventDefault();
-        startEyedropper(getStyle, setStyle, toolbarEl, 'bg');
       }
     });
   }
