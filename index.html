@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151425">
+  <meta name="app-version" content="202607151427">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -174,9 +174,12 @@
       justify-content: flex-start;
     }
 
-    .app:has(#screen-play.active) header,
-    .app:has(#screen-decorate.active) header {
+    .app:has(#screen-play.active) header {
       padding: 4px 12px 2px;
+    }
+
+    .app:has(#screen-decorate.active) header {
+      padding: 14px 12px 10px;
     }
 
     .app:has(#screen-decorate.active) header h1 {
@@ -187,15 +190,30 @@
       line-height: 1.2;
     }
 
+    html:has(#screen-decorate.active),
+    body:has(#screen-decorate.active) {
+      overflow: auto;
+      height: auto;
+      min-height: 100%;
+    }
+
+    .app:has(#screen-decorate.active) {
+      height: auto;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     .app:has(#screen-decorate.active) main {
-      overflow: hidden;
-      min-height: 0;
-      flex: 1;
+      overflow: visible;
+      flex: 1 0 auto;
+      min-height: calc(100dvh - var(--decorate-header-h, 48px));
       padding: 0 12px;
     }
 
     .app:has(#screen-decorate.active) footer {
-      padding: 4px 16px 8px;
+      padding: 24px 20px 40px;
       flex-shrink: 0;
     }
 
@@ -220,24 +238,24 @@
     }
 
     #screen-decorate {
-      padding-top: 0;
-      flex: 1 1 0;
-      min-height: 0;
-      overflow: hidden;
+      padding: 4px 0 16px;
+      flex: 1 1 auto;
+      min-height: calc(100dvh - var(--decorate-header-h, 48px));
+      overflow: visible;
       justify-content: flex-start;
-      gap: 0;
+      gap: clamp(12px, 2.2vh, 18px);
       width: 100%;
     }
 
     #screen-decorate .decorate-stage {
-      flex: 1 1 0;
+      flex: 0 0 auto;
+      width: 100%;
       min-height: 0;
       margin-bottom: 0;
     }
 
     #screen-decorate .tool-row {
-      margin-bottom: 6px;
-      margin-top: 0;
+      margin: 0;
       flex-shrink: 0;
       gap: 12px;
     }
@@ -254,9 +272,8 @@
     }
 
     #screen-decorate .btn-stack {
-      gap: 8px;
-      margin-top: 0;
-      margin-bottom: 6px;
+      gap: 10px;
+      margin: 0;
       flex-shrink: 0;
       align-items: center;
     }
@@ -3655,17 +3672,37 @@
     return canvas;
   }
 
-  const DECORATE_ZONE_PAD = { top: 8, right: 12, bottom: 8, left: 12 };
+  const DECORATE_ZONE_PAD = { top: 6, right: 12, bottom: 6, left: 12 };
+  const DECORATE_SECTION_GAP = 14;
+
+  function getDecorateLayoutMetrics() {
+    const header = document.querySelector('header');
+    const toolRow = document.querySelector('#screen-decorate .tool-row');
+    const btnStack = document.querySelector('#screen-decorate .btn-stack');
+    const headerH = header?.offsetHeight || 48;
+    document.documentElement.style.setProperty('--decorate-header-h', `${headerH}px`);
+
+    const toolsH = toolRow?.offsetHeight || 54;
+    const buttonsH = btnStack?.offsetHeight || 76;
+    const gaps = DECORATE_SECTION_GAP * 2 + 20;
+    const stageH = Math.max(
+      160,
+      window.innerHeight - headerH - toolsH - buttonsH - gaps
+    );
+    const stage = $('#decorate-stage');
+    const stageW = Math.max(1, stage?.clientWidth || window.innerWidth - 24);
+    return { headerH, stageW, stageH, toolsH, buttonsH };
+  }
 
   function layoutDecoratePuzzle(flat = state.assembledCanvas) {
     const stage = $('#decorate-stage');
-    const stageW = Math.max(1, stage?.clientWidth || window.innerWidth - 24);
-    const stageH = Math.max(1, stage?.clientHeight || 320);
+    const { stageW, stageH } = getDecorateLayoutMetrics();
+    if (stage) stage.style.height = `${stageH}px`;
+
     const pad = DECORATE_ZONE_PAD;
     const innerW = Math.max(1, stageW - pad.left - pad.right);
     const innerH = Math.max(1, stageH - pad.top - pad.bottom);
 
-    // Native 300×400 max — same cap as play screen; image fits, controls stay visible
     const maxW = Math.min(PUZZLE_WIDTH, innerW, window.innerWidth - 40);
     const maxH = Math.min(PUZZLE_HEIGHT, innerH);
     const frame = layoutPuzzleFrame(maxW, maxH);
