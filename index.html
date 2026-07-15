@@ -3,21 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151341">
+  <meta name="app-version" content="202607151345">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-  <link rel="preload" as="image" href="assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg" id="preload-app-bg">
-  <script>
-    (function () {
-      var v = document.querySelector('meta[name="app-version"]')?.content || '';
-      var preload = document.getElementById('preload-app-bg');
-      if (preload && v) {
-        preload.href = 'assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg?v=' + encodeURIComponent(v);
-      }
-    })();
-  </script>
   <!-- Google tag (gtag.js) — anonymous usage metrics only -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EJ22395JR7"></script>
   <script>
@@ -38,6 +28,7 @@
       --glass: rgba(255, 255, 255, 0.72);
       --glass-border: rgba(255, 255, 255, 0.85);
       --black: #1a1a1a;
+      --app-bg-default: #e4ede0;
       --snap: 28px;
       --puzzle-card-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
     }
@@ -62,15 +53,13 @@
       overflow: hidden;
     }
 
-    /* Background — image URL set inline with app-version cache bust */
+    /* Background — solid green before upload; tints from uploaded photo after */
     .bg {
       position: fixed;
       inset: 0;
       z-index: 0;
-      background-color: #e8dcc8;
-      background-position: center;
-      background-size: cover;
-      background-repeat: no-repeat;
+      background-color: var(--app-bg-default);
+      transition: background 0.65s ease, background-color 0.65s ease;
     }
 
     .sparkles {
@@ -1443,14 +1432,10 @@
     <div class="bg" id="app-bg"></div>
     <script>
       (function () {
-        var v = document.querySelector('meta[name="app-version"]')?.content || '';
         var bg = document.getElementById('app-bg');
-        if (bg && v) {
-          bg.style.backgroundColor = '#e8dcc8';
-          bg.style.backgroundImage = "url('assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg?v=" + encodeURIComponent(v) + "')";
-          bg.style.backgroundSize = 'cover';
-          bg.style.backgroundPosition = 'center';
-          bg.style.backgroundRepeat = 'no-repeat';
+        if (bg) {
+          bg.style.backgroundColor = '#e4ede0';
+          bg.style.background = '#e4ede0';
         }
       })();
     </script>
@@ -1928,6 +1913,7 @@
     exportBgMode: 'image',
     exportBgImageId: 'default',
     exportBgColor: '#f5ebe0',
+    photoBgTint: null,
     decorateReady: false,
     decorateLayout: null,
     decorateLayoutObserver: null,
@@ -2198,6 +2184,8 @@
       uploadPreview.src = state.image.src;
       uploadLabel.classList.add('has-image');
       btnStart.disabled = false;
+      state.photoBgTint = extractPhotoBgTint(state.image);
+      applyDefaultAppBg();
       trackEvent('photo_uploaded');
     };
     img.src = state.imageUrl;
@@ -2272,19 +2260,31 @@
     return exportBgImageSrc(getExportBgImageEntry(id));
   }
 
+  const DEFAULT_APP_BG_COLOR = '#e4ede0';
+
   function restoreAppBg() {
     applyDefaultAppBg();
+  }
+
+  function clearAppBgImageStyles(bgEl) {
+    bgEl.style.backgroundImage = 'none';
+    bgEl.style.backgroundSize = '';
+    bgEl.style.backgroundPosition = '';
+    bgEl.style.backgroundRepeat = '';
+    bgEl.style.backgroundAttachment = '';
   }
 
   function applyDefaultAppBg() {
     const bgEl = $('.bg');
     if (!bgEl) return;
-    bgEl.style.backgroundColor = '#e8dcc8';
-    bgEl.style.backgroundImage = `url("${assetUrl(`${EXPORT_BG_PATH}/${DEFAULT_APP_BG_FILE}`)}")`;
-    bgEl.style.backgroundSize = 'cover';
-    bgEl.style.backgroundPosition = 'center';
-    bgEl.style.backgroundRepeat = 'no-repeat';
-    bgEl.style.backgroundAttachment = 'scroll';
+    clearAppBgImageStyles(bgEl);
+    if (state.photoBgTint) {
+      bgEl.style.backgroundColor = state.photoBgTint.base;
+      bgEl.style.background = state.photoBgTint.gradient;
+    } else {
+      bgEl.style.backgroundColor = DEFAULT_APP_BG_COLOR;
+      bgEl.style.background = DEFAULT_APP_BG_COLOR;
+    }
     invalidateBgSampleCanvas();
   }
 
@@ -3297,6 +3297,104 @@
       return '#' + hex.slice(1).split('').map((c) => c + c).join('');
     }
     return '#ffffff';
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+
+  function hslToRgb(h, s, l) {
+    h = ((h % 360) + 360) % 360;
+    s /= 100;
+    l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let rp = 0;
+    let gp = 0;
+    let bp = 0;
+    if (h < 60) { rp = c; gp = x; }
+    else if (h < 120) { rp = x; gp = c; }
+    else if (h < 180) { gp = c; bp = x; }
+    else if (h < 240) { gp = x; bp = c; }
+    else if (h < 300) { rp = x; bp = c; }
+    else { rp = c; bp = x; }
+    return [
+      Math.round((rp + m) * 255),
+      Math.round((gp + m) * 255),
+      Math.round((bp + m) * 255),
+    ];
+  }
+
+  function hslToHex(h, s, l) {
+    const [r, g, b] = hslToRgb(h, s, l);
+    return pixelToHex(r, g, b);
+  }
+
+  /** Sample uploaded photo and build a soft pastel full-screen tint. */
+  function extractPhotoBgTint(img) {
+    const sampleW = 48;
+    const sampleH = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = sampleW;
+    canvas.height = sampleH;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, sampleW, sampleH);
+    const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+
+    let rSum = 0;
+    let gSum = 0;
+    let bSum = 0;
+    let count = 0;
+    const push = (r, g, b) => {
+      rSum += r;
+      gSum += g;
+      bSum += b;
+      count += 1;
+    };
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      if (a < 128) continue;
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (lum < 28 || lum > 248) continue;
+      push(r, g, b);
+    }
+
+    if (!count) {
+      for (let i = 0; i < data.length; i += 16) {
+        push(data[i], data[i + 1], data[i + 2]);
+      }
+    }
+
+    let [h, s, l] = rgbToHsl(rSum / count, gSum / count, bSum / count);
+    s = Math.min(58, s * 0.52 + 16);
+    l = Math.min(93, Math.max(80, l * 0.32 + 60));
+    const base = hslToHex(h, s, l);
+    const top = hslToHex(h, s * 0.82, Math.min(96, l + 7));
+    const bottom = hslToHex(h, Math.min(62, s * 1.08), Math.max(72, l - 9));
+    return {
+      base,
+      gradient: `linear-gradient(180deg, ${top} 0%, ${base} 48%, ${bottom} 100%)`,
+    };
   }
 
   function isPresetTextColor(color) {
