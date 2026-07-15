@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151415">
+  <meta name="app-version" content="202607151416">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -3610,18 +3610,6 @@
   }
 
   const DECORATE_ZONE_PAD = { top: 8, right: 12, bottom: 8, left: 12 };
-
-  function getDecorateChromeHeight() {
-    const header = document.querySelector('header');
-    const footer = document.querySelector('footer');
-    const toolRow = document.querySelector('#screen-decorate .tool-row');
-    const btnStack = document.querySelector('#screen-decorate .btn-stack');
-    return (header?.offsetHeight || 48)
-      + (footer?.offsetHeight || 52)
-      + (toolRow?.offsetHeight || 48)
-      + (btnStack?.offsetHeight || 56)
-      + 8;
-  }
 
   function layoutDecoratePuzzle(flat = state.assembledCanvas) {
     const stage = $('#decorate-stage');
