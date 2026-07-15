@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151737">
+  <meta name="app-version" content="202607151807">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -5545,6 +5545,17 @@
     return null;
   }
 
+  function measureTextLabelForExport(overlay) {
+    const label = overlay.el.querySelector('.text-label');
+    if (!label) return null;
+    const prevTransform = overlay.el.style.transform;
+    overlay.el.style.transform = 'none';
+    const labelRect = label.getBoundingClientRect();
+    const elRect = overlay.el.getBoundingClientRect();
+    overlay.el.style.transform = prevTransform;
+    return { label, labelRect, elRect };
+  }
+
   function drawExportOverlayItem(ctx, overlay, card, canvasRect) {
     if (!canvasRect?.width || !canvasRect?.height) return;
 
@@ -5553,7 +5564,6 @@
 
     const scaleX = card.w / canvasRect.width;
     const scaleY = card.h / canvasRect.height;
-    const scale = (scaleX + scaleY) / 2;
     const x = card.x + (r.left - canvasRect.left) * scaleX;
     const y = card.y + (r.top - canvasRect.top) * scaleY;
 
@@ -5571,23 +5581,33 @@
       const img = getStickerDrawImage(overlay);
       if (img) ctx.drawImage(img, x, y, w, h);
     } else {
-      const label = overlay.el.querySelector('.text-label');
-      const computedFs = label
-        ? parseFloat(getComputedStyle(label).fontSize)
-        : (overlay.fontSize || 24);
-      const fs = computedFs * scale;
+      const measured = measureTextLabelForExport(overlay);
+      if (!measured) {
+        ctx.restore();
+        return;
+      }
+      const { label, labelRect, elRect } = measured;
+      if (labelRect.width < 1 || labelRect.height < 1) {
+        ctx.restore();
+        return;
+      }
+
+      const x = card.x + (labelRect.left - canvasRect.left) * scaleX;
+      const y = card.y + (labelRect.top - canvasRect.top) * scaleY;
+      const w = labelRect.width * scaleX;
+      const h = labelRect.height * scaleY;
+
+      const labelStyle = getComputedStyle(label);
+      const fs = parseFloat(labelStyle.fontSize) * scaleX;
+      const padLeft = parseFloat(labelStyle.paddingLeft) * scaleX;
       const fontFamily = getFontFamily(overlay.fontKey);
       const color = overlay.color || DEFAULT_TEXT_STYLE.color;
-      const padX = fs * 0.42;
-      const padY = fs * 0.28;
-      ctx.font = `${fs}px ${fontFamily}`;
-      const textW = ctx.measureText(overlay.text).width;
-      const w = Math.max(r.width * scaleX, textW + padX * 2);
-      const h = Math.max(r.height * scaleY, fs * 1.2 + padY * 2);
 
       if (overlay.rotation) {
-        const cx = x + w / 2;
-        const cy = y + h / 2;
+        const elX = card.x + (elRect.left - canvasRect.left) * scaleX;
+        const elY = card.y + (elRect.top - canvasRect.top) * scaleY;
+        const cx = elX + (elRect.width * scaleX) / 2;
+        const cy = elY + (elRect.height * scaleY) / 2;
         ctx.translate(cx, cy);
         ctx.rotate((overlay.rotation * Math.PI) / 180);
         ctx.translate(-cx, -cy);
@@ -5601,9 +5621,14 @@
         ctx.fill();
       }
 
+      const fontWeight = labelStyle.fontWeight && labelStyle.fontWeight !== '400'
+        ? `${labelStyle.fontWeight} `
+        : '';
+      ctx.font = `${fontWeight}${fs}px ${fontFamily}`;
       ctx.fillStyle = color;
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(overlay.text, x + padX, y + padY + fs * 0.88);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(overlay.text, x + padLeft, y + h / 2);
     }
     ctx.restore();
   }
