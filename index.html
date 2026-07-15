@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151401">
+  <meta name="app-version" content="202607151406">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1083,18 +1083,24 @@
       position: relative;
       overflow: hidden;
       cursor: pointer;
+      border: none;
+      padding: 0;
+      -webkit-appearance: none;
+      appearance: none;
     }
 
     .color-input-native {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 48px;
+      height: 48px;
+      opacity: 0.01;
+      pointer-events: none;
       border: none;
       padding: 0;
       margin: 0;
+      z-index: -1;
       -webkit-appearance: none;
       appearance: none;
     }
@@ -2676,7 +2682,8 @@
     });
 
     const exportBgColorInput = swatchRow.querySelector('[data-export-bg-color-input]');
-    wireColorPickerInput(
+    wireColorPickerButton(
+      swatchRow.querySelector('[data-palette-btn]'),
       exportBgColorInput,
       () => normalizeHexColor(state.exportBgColor),
       (value) => applyExportBgColor(value)
@@ -2770,7 +2777,8 @@
     });
 
     const strokeColorInput = row.querySelector('[data-stroke-color-input]');
-    wireColorPickerInput(
+    wireColorPickerButton(
+      row.querySelector('[data-palette-btn]'),
       strokeColorInput,
       () => normalizeHexColor(state.strokeColor),
       (value) => applyStrokeColor(value)
@@ -3528,37 +3536,81 @@
     swatchEl.style.setProperty('--custom-selected', isActive && color ? color : 'transparent');
   }
 
-  function colorToolsHTML({ inputAttr, inputValue, eyedropperAttr, eyedropperTitle }) {
+  function colorToolsHTML({ inputAttr, inputValue, eyedropperAttr, eyedropperTitle, paletteAttr = '' }) {
     return `
       <div class="color-tools">
-        <div class="color-tool-item">
-          <label class="color-swatch color-swatch-custom color-swatch-palette" title="Open color palette">
-            <span class="color-swatch-plus">+</span>
-            <input type="color" class="color-input-native" ${inputAttr} value="${inputValue}">
-          </label>
-          <span class="color-tool-label">Palette</span>
-        </div>
-        <div class="color-tool-item">
-          <button type="button" class="color-tool-btn eyedropper-btn" ${eyedropperAttr} title="${eyedropperTitle}">${EYEDROPPER_ICON}</button>
-          <span class="color-tool-label">Pick</span>
-        </div>
+        <button type="button" class="color-swatch color-swatch-custom color-swatch-palette" data-palette-btn ${paletteAttr} title="Choose custom color">
+          <span class="color-swatch-plus">+</span>
+        </button>
+        <input type="color" class="color-input-native" ${inputAttr} value="${inputValue}" tabindex="-1" aria-hidden="true">
+        <button type="button" class="color-tool-btn eyedropper-btn" ${eyedropperAttr} title="${eyedropperTitle}">${EYEDROPPER_ICON}</button>
       </div>
     `;
   }
 
-  function wireColorPickerInput(input, getValue, onPick) {
-    if (!input) return;
-    const syncValue = () => {
-      if (getValue) input.value = getValue();
-    };
-    input.addEventListener('pointerdown', syncValue, { capture: true });
-    input.addEventListener('click', (e) => {
-      syncValue();
-      e.stopPropagation();
+  function restoreColorInput(input) {
+    if (!input || !input._paletteHome) return;
+    if (input.parentElement !== input._paletteHome) {
+      input._paletteHome.appendChild(input);
+    }
+    input.style.cssText = '';
+    input.className = 'color-input-native';
+    input.setAttribute('tabindex', '-1');
+    input.setAttribute('aria-hidden', 'true');
+  }
+
+  function openNativeColorPicker(input, anchorEl, getValue) {
+    if (!input || !anchorEl) return;
+    if (getValue) input.value = getValue();
+    if (!input._paletteHome) input._paletteHome = input.parentElement;
+
+    const rect = anchorEl.getBoundingClientRect();
+    document.body.appendChild(input);
+    Object.assign(input.style, {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${Math.max(44, rect.width)}px`,
+      height: `${Math.max(44, rect.height)}px`,
+      opacity: '0.02',
+      pointerEvents: 'auto',
+      zIndex: '100000',
+      border: 'none',
+      padding: '0',
+      margin: '0',
     });
-    const apply = () => onPick(input.value);
-    input.addEventListener('input', apply);
-    input.addEventListener('change', apply);
+    input.removeAttribute('aria-hidden');
+
+    const done = () => restoreColorInput(input);
+    input.addEventListener('change', done, { once: true });
+    input.addEventListener('blur', done, { once: true });
+
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch (_) {}
+    input.focus({ preventScroll: true });
+    input.click();
+  }
+
+  function wireColorPickerButton(btn, input, getValue, onPick) {
+    if (!btn || !input) return;
+    input.addEventListener('input', () => onPick(input.value));
+    input.addEventListener('change', () => onPick(input.value));
+
+    const open = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openNativeColorPicker(input, btn, getValue ? getValue() : input.value);
+    };
+
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      btn.addEventListener('touchend', open, { passive: false });
+    } else {
+      btn.addEventListener('click', open);
+    }
   }
 
   function wireEyedropperButton(btn, onStart) {
@@ -4019,6 +4071,7 @@
         <div class="color-picker-block">
           <div class="color-swatches">${swatches}</div>
           ${colorToolsHTML({
+            paletteAttr: 'data-palette-color',
             inputAttr: 'data-color-input',
             inputValue: '#ffffff',
             eyedropperAttr: 'data-eyedropper',
@@ -4038,6 +4091,7 @@
             ${bgSwatches}
           </div>
           ${colorToolsHTML({
+            paletteAttr: 'data-palette-bg',
             inputAttr: 'data-bg-color-input',
             inputValue: '#1a1a1a',
             eyedropperAttr: 'data-bg-eyedropper',
@@ -4059,7 +4113,7 @@
       btn.classList.toggle('active', normalizeHexColor(btn.dataset.color) === color);
     });
 
-    const customColorBtn = toolbarEl.querySelector('[data-color-input]')?.closest('.color-swatch-custom');
+    const customColorBtn = toolbarEl.querySelector('[data-palette-color]');
     syncCustomColorSwatch(customColorBtn, isCustomColor, color);
 
     const colorInput = toolbarEl.querySelector('[data-color-input]');
@@ -4076,7 +4130,7 @@
       btn.classList.toggle('active', bgColor === btn.dataset.bgColor);
     });
 
-    const customBgBtn = toolbarEl.querySelector('[data-bg-color-input]')?.closest('.color-swatch-custom');
+    const customBgBtn = toolbarEl.querySelector('[data-palette-bg]');
     syncCustomColorSwatch(customBgBtn, !!isCustomBg, bgColor ? rgbaToHex(bgColor) : '');
 
     const bgColorInput = toolbarEl.querySelector('[data-bg-color-input]');
@@ -4111,12 +4165,14 @@
     const colorInput = toolbarEl.querySelector('[data-color-input]');
     const bgColorInput = toolbarEl.querySelector('[data-bg-color-input]');
 
-    wireColorPickerInput(
+    wireColorPickerButton(
+      toolbarEl.querySelector('[data-palette-color]'),
       colorInput,
       () => normalizeHexColor(getStyle().color),
       (value) => applyToolbarColor(toolbarEl, getStyle, setStyle, value)
     );
-    wireColorPickerInput(
+    wireColorPickerButton(
+      toolbarEl.querySelector('[data-palette-bg]'),
       bgColorInput,
       () => {
         const curBg = normalizeBgColor(getStyle().bgColor);
