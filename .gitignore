@@ -2,7 +2,7 @@ node_modules/
 screenshots-comparison/
 .DS_Store
 
-# Full-size source backgrounds (app uses assets/Bg/web/ + assets/jm-bg.jpg)
+# Full-size source backgrounds (app uses assets/Bg/web/ + assets/Bg/thumbs/)
 assets/jm-bg.png
 assets/Bg/*.jpg
 !assets/Bg/web/
