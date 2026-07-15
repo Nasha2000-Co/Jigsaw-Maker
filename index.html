@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151408">
+  <meta name="app-version" content="202607151410">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -176,68 +176,97 @@
 
     .app:has(#screen-play.active) header,
     .app:has(#screen-decorate.active) header {
-      padding: 8px 20px 4px;
+      padding: 4px 12px 2px;
     }
 
     .app:has(#screen-decorate.active) header h1 {
-      font-size: clamp(18px, 4.5vw, 22px);
-      letter-spacing: 0.28em;
-      text-indent: 0.28em;
+      font-size: clamp(14px, 3.8vw, 18px);
+      letter-spacing: 0.22em;
+      text-indent: 0.22em;
+      margin: 0;
+      line-height: 1.2;
     }
 
     .app:has(#screen-decorate.active) main {
-      overflow: visible;
+      overflow: hidden;
       min-height: 0;
+      flex: 1;
+      padding: 0 12px;
     }
 
     .app:has(#screen-decorate.active) footer {
-      padding: 6px 20px 10px;
+      padding: 4px 16px 8px;
+      flex-shrink: 0;
     }
 
     .decorate-header-bar {
       display: none;
       width: 100%;
-      margin-bottom: 6px;
+      margin-bottom: 0;
     }
 
     .app:has(#screen-decorate.active) .decorate-header-bar {
       display: block;
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: auto;
+      z-index: 2;
+    }
+
+    .app:has(#screen-decorate.active) header {
+      position: relative;
     }
 
     #screen-decorate {
       padding-top: 0;
-      flex: 1;
+      flex: 1 1 0;
       min-height: 0;
-      overflow: visible;
+      overflow: hidden;
+      justify-content: flex-start;
+      gap: 0;
+      width: 100%;
     }
 
-    #screen-decorate .decorate-canvas-wrap {
+    #screen-decorate .decorate-stage {
+      flex: 1 1 0;
+      min-height: 0;
       margin-bottom: 0;
     }
 
     #screen-decorate .tool-row {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       margin-top: 0;
       flex-shrink: 0;
+      gap: 12px;
     }
 
-    #screen-decorate .tool-row,
-    #screen-decorate .btn-stack {
-      position: relative;
-      z-index: 20;
-      pointer-events: auto;
+    #screen-decorate .tool-btn {
+      width: 48px;
+      height: 48px;
+      font-size: 16px;
+    }
+
+    #screen-decorate .tool-btn.sticker-btn,
+    #screen-decorate .tool-btn.style-btn {
+      font-size: 10px;
     }
 
     #screen-decorate .btn-stack {
-      gap: 8px;
-      margin-top: 6px;
-      margin-bottom: 0;
+      gap: 6px;
+      margin-top: 0;
+      margin-bottom: 4px;
       flex-shrink: 0;
     }
 
-    #screen-decorate .btn-stack .btn.is-busy {
-      opacity: 0.65;
-      pointer-events: none;
+    #screen-decorate .btn-stack .btn {
+      margin-top: 0;
+      width: min(240px, 100%);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 9px 20px;
+      letter-spacing: 0.04em;
     }
 
     .app:has(#screen-play.active) header h1 {
@@ -505,11 +534,6 @@
       margin-top: 16px;
     }
 
-    #screen-decorate .btn-stack .btn {
-      margin-top: 0;
-      width: min(300px, calc(100vw - 32px));
-    }
-
     /* Play screen */
     .play-toolbar {
       width: 100%;
@@ -725,12 +749,28 @@
       min-height: 18px;
     }
 
+    #screen-decorate .btn-stack .btn.is-busy {
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    #screen-decorate .decorate-canvas-wrap {
+      margin-bottom: 0;
+    }
+
+    #screen-decorate .tool-row,
+    #screen-decorate .btn-stack {
+      position: relative;
+      z-index: 20;
+      pointer-events: auto;
+    }
+
     /* Decorate screen */
     .decorate-stage {
       position: relative;
       flex: 1;
       width: 100%;
-      min-height: 160px;
+      min-height: 0;
       overflow: visible;
     }
 
@@ -3485,22 +3525,45 @@
     return canvas;
   }
 
-  const DECORATE_ZONE_PAD = { top: 72, right: 36, bottom: 28, left: 36 };
+  const DECORATE_ZONE_PAD = { top: 8, right: 12, bottom: 8, left: 12 };
+
+  function getDecorateChromeHeight() {
+    const header = document.querySelector('header');
+    const footer = document.querySelector('footer');
+    const toolRow = document.querySelector('#screen-decorate .tool-row');
+    const btnStack = document.querySelector('#screen-decorate .btn-stack');
+    return (header?.offsetHeight || 48)
+      + (footer?.offsetHeight || 52)
+      + (toolRow?.offsetHeight || 48)
+      + (btnStack?.offsetHeight || 56)
+      + 8;
+  }
+
+  function layoutDecorateFrame(maxW, maxH) {
+    const widthScale = maxW / PUZZLE_WIDTH;
+    const heightScale = maxH / PUZZLE_HEIGHT;
+    const scale = Math.min(widthScale, heightScale);
+    return {
+      w: PUZZLE_WIDTH * scale,
+      h: PUZZLE_HEIGHT * scale,
+      scale,
+    };
+  }
 
   /**
    * Single source of truth for decorate puzzle display size.
-   * Always scales uniformly to fit the stage — never stretch width/height independently.
+   * Puzzle fills available stage — image is the hero, not the buttons.
    */
   function layoutDecoratePuzzle(flat = state.assembledCanvas) {
     const stage = $('#decorate-stage');
-    const stageW = Math.max(1, stage?.clientWidth || Math.min(PUZZLE_WIDTH, window.innerWidth - 40));
-    const stageH = Math.max(1, stage?.clientHeight || 200);
+    const stageW = Math.max(1, stage?.clientWidth || window.innerWidth - 24);
+    const measuredStageH = stage?.clientHeight || 0;
+    const viewportStageH = Math.max(220, window.innerHeight - getDecorateChromeHeight());
+    const stageH = Math.max(measuredStageH, viewportStageH);
     const pad = DECORATE_ZONE_PAD;
     const innerW = Math.max(1, stageW - pad.left - pad.right);
-    const innerH = Math.max(80, stageH - pad.top - pad.bottom);
-    const maxW = Math.min(PUZZLE_WIDTH, innerW, window.innerWidth - 40);
-    const maxH = innerH;
-    const frame = layoutPuzzleFrame(maxW, maxH);
+    const innerH = Math.max(120, stageH - pad.top - pad.bottom);
+    const frame = layoutDecorateFrame(innerW, innerH);
     const puzzleX = pad.left + (innerW - frame.w) / 2;
     const puzzleY = pad.top + (innerH - frame.h) / 2;
     return {
@@ -3547,6 +3610,9 @@
     decorateCanvas.height = PUZZLE_HEIGHT;
     decorateCanvas.getContext('2d').drawImage(flat, 0, 0, PUZZLE_WIDTH, PUZZLE_HEIGHT);
     refreshDecorateLayout(flat);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => refreshDecorateLayout(flat));
+    });
 
     const overlayLayer = $('#overlay-layer');
     if (resetOverlays) {
