@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151324">
+  <meta name="app-version" content="202607151328">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-  <link rel="preload" as="image" href="assets/jm-bg.jpg" id="preload-app-bg">
+  <link rel="preload" as="image" href="assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg" id="preload-app-bg">
   <script>
     (function () {
       var v = document.querySelector('meta[name="app-version"]')?.content || '';
       var preload = document.getElementById('preload-app-bg');
-      if (preload && v) preload.href = 'assets/jm-bg.jpg?v=' + encodeURIComponent(v);
+      if (preload && v) {
+        preload.href = 'assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg?v=' + encodeURIComponent(v);
+      }
     })();
   </script>
   <!-- Google tag (gtag.js) — anonymous usage metrics only -->
@@ -1435,7 +1437,7 @@
         var bg = document.getElementById('app-bg');
         if (bg && v) {
           bg.style.backgroundColor = '#e8dcc8';
-          bg.style.backgroundImage = "url('assets/jm-bg.jpg?v=" + encodeURIComponent(v) + "')";
+          bg.style.backgroundImage = "url('assets/Bg/web/painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg?v=" + encodeURIComponent(v) + "')";
           bg.style.backgroundSize = 'cover';
           bg.style.backgroundPosition = 'center';
           bg.style.backgroundRepeat = 'no-repeat';
@@ -2231,11 +2233,11 @@
   ];
 
   const EXPORT_BG_PATH = 'assets/Bg/web';
+  const DEFAULT_APP_BG_FILE = 'painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg';
   const EXPORT_BG_IMAGES = [
-    { id: 'default', file: 'jm-bg.jpg', title: 'Default photo', root: 'assets' },
+    { id: 'default', file: DEFAULT_APP_BG_FILE, title: 'Rabbit field' },
     { id: 'blue-sky-hill', file: 'blue-sky-green-hill-white-flowers.jpg', title: 'Blue sky hill' },
     { id: 'green-meadow', file: 'green-meadow-grass-white-flowers.jpg', title: 'Green meadow' },
-    { id: 'white-rabbit', file: 'painting-white-rabbit-field-flowers-with-birds-generative-ai.jpg', title: 'Rabbit field' },
     { id: 'pastel-teal', file: 'pastel-teal-sky-pink-flower-field.jpg', title: 'Pastel flower field' },
     { id: 'yellow-clover', file: 'watercolor-yellow-sky-green-clover-hill.jpg', title: 'Yellow clover hill' },
     { id: 'teal-flower', file: 'watercolor-teal-sky-yellow-flower-hill.jpg', title: 'Teal flower hill' },
@@ -2249,9 +2251,6 @@
 
   function exportBgThumbSrc(entry) {
     const file = entry.file.replace(/\.png$/i, '.jpg');
-    if (entry.id === 'default') {
-      return assetUrl('assets/Bg/thumbs/jm-bg.jpg');
-    }
     return assetUrl(`assets/Bg/thumbs/${file}`);
   }
 
@@ -2271,7 +2270,7 @@
     const bgEl = $('.bg');
     if (!bgEl) return;
     bgEl.style.backgroundColor = '#e8dcc8';
-    bgEl.style.backgroundImage = `url("${assetUrl('assets/jm-bg.jpg')}")`;
+    bgEl.style.backgroundImage = `url("${assetUrl(`${EXPORT_BG_PATH}/${DEFAULT_APP_BG_FILE}`)}")`;
     bgEl.style.backgroundSize = 'cover';
     bgEl.style.backgroundPosition = 'center';
     bgEl.style.backgroundRepeat = 'no-repeat';
