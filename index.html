@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151614">
+  <meta name="app-version" content="202607151628">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -388,8 +388,7 @@
     }
 
     #screen-play #board-canvas {
-      max-width: 100%;
-      /* Size is set in JS to fit board-wrap — avoid max-height/object-fit squashing snap coords */
+      /* Display size set in JS — uniform scale only */
     }
 
     #screen-play .play-bottom {
@@ -778,8 +777,8 @@
       border-radius: 14px;
       touch-action: none;
       box-shadow: var(--puzzle-card-shadow);
-      aspect-ratio: 3 / 4;
-      /* Width + height set in JS — aspect-ratio keeps 300×400 on all screens */
+      display: block;
+      /* Width + height set in JS — do not use aspect-ratio here (breaks snap on Safari). */
     }
 
     .tray-wrap {
@@ -3267,13 +3266,26 @@
     el.textContent = left ? `${left} piece${left === 1 ? '' : 's'} left` : '';
   }
 
+  function getBoardDisplaySize() {
+    const wrap = document.querySelector('#screen-play .board-wrap');
+    let w = state.boardW;
+    let h = state.boardH;
+    if (wrap && wrap.clientWidth > 20 && wrap.clientHeight > 20) {
+      const scale = Math.min(1, (wrap.clientWidth - 4) / w, (wrap.clientHeight - 4) / h);
+      w *= scale;
+      h *= scale;
+    }
+    return { w, h };
+  }
+
   function resizeCanvases() {
     const dpr = window.devicePixelRatio || 1;
     boardCanvas.width = state.boardW * dpr;
     boardCanvas.height = state.boardH * dpr;
-    boardCanvas.style.width = state.boardW + 'px';
-    boardCanvas.style.height = state.boardH + 'px';
-    boardCanvas.style.aspectRatio = `${PUZZLE_WIDTH} / ${PUZZLE_HEIGHT}`;
+    const display = getBoardDisplaySize();
+    boardCanvas.style.width = `${display.w}px`;
+    boardCanvas.style.height = `${display.h}px`;
+    boardCanvas.style.aspectRatio = 'auto';
     boardCanvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
     resizeTrayCanvas();
   }
@@ -3442,9 +3454,30 @@
     return null;
   }
 
-  function getSnapThreshold() {
+  function getSnapThreshold(piece = null) {
     const cell = Math.min(state.cellW, state.cellH);
-    return Math.max(40, cell * 0.72);
+    let threshold = Math.max(44, cell * 0.78);
+    if (piece) {
+      const edge = piece.col === 0 || piece.col === state.cols - 1
+        || piece.row === 0 || piece.row === state.rows - 1;
+      if (edge) threshold *= 1.12;
+    }
+    return threshold;
+  }
+
+  function getPieceSlotCenter(piece) {
+    return {
+      x: piece.col * state.cellW + state.cellW / 2,
+      y: piece.row * state.cellH + state.cellH / 2,
+    };
+  }
+
+  function shouldSnapPiece(bx, by, piece) {
+    const threshold = getSnapThreshold(piece);
+    const slot = getPieceSlotCenter(piece);
+    if (Math.hypot(bx - slot.x, by - slot.y) < threshold) return true;
+    const target = getPieceSnapTarget(piece);
+    return Math.hypot(bx - target.x, by - target.y) < threshold * 0.9;
   }
 
   function boardClientToLogical(clientX, clientY) {
@@ -3464,9 +3497,10 @@
       return { dw: pw * trayScale, dh: ph * trayScale };
     }
     const rect = boardCanvas.getBoundingClientRect();
-    const scaleX = rect.width / HeadbreakerGen.PUZZLE_W;
-    const scaleY = rect.height / HeadbreakerGen.PUZZLE_H;
-    return { dw: pw * scaleX, dh: ph * scaleY };
+    const uniform = Math.min(rect.width / state.boardW, rect.height / state.boardH);
+    const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
+    const displayScale = boardScale * uniform;
+    return { dw: pw * displayScale, dh: ph * displayScale };
   }
 
   let snapAudioCtx = null;
@@ -3578,13 +3612,9 @@
     const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
 
     const { x: bx, y: by } = boardClientToLogical(clientX, clientY);
-
-    const target = getPieceSnapTarget(piece);
-    const dist = Math.hypot(bx - target.x, by - target.y);
-    const snapThreshold = getSnapThreshold();
     const onBoard = bx >= -20 && bx <= state.boardW + 20 && by >= -20 && by <= state.boardH + 20;
 
-    if (onBoard && dist < snapThreshold) {
+    if (onBoard && shouldSnapPiece(bx, by, piece)) {
       playSnapSuccessFeedback();
       piece.locked = true;
       piece._composed = null;
