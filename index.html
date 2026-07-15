@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151419">
+  <meta name="app-version" content="202607151422">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -352,14 +352,9 @@
     #screen-play .tray-wrap {
       margin-bottom: 0;
       max-width: 100%;
-      max-height: 112px;
       overflow-x: auto;
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
-    }
-
-    #screen-play #tray-canvas {
-      max-height: 108px;
     }
 
     #screen-play .play-hint {
@@ -2857,28 +2852,45 @@
     return state.pieces.filter((p) => !p.locked).length;
   }
 
-  function getTrayMaxHeight(count = getTrayUnlockedCount()) {
-    if (count <= 4) return 108;
-    if (count <= 6) return 100;
-    if (count <= 9) return 94;
-    return 88;
+  function applyTraySizeForCount(count = getTrayUnlockedCount()) {
+    const size = estimateTraySize(count);
+    state.trayW = size.w;
+    state.trayH = size.h;
   }
 
-  function capTrayDimensions(count = getTrayUnlockedCount()) {
-    const maxTrayW = Math.min(340, window.innerWidth - 32);
-    const maxH = getTrayMaxHeight(count);
-    const prevW = state.trayW;
-    const prevH = state.trayH;
-    state.trayW = Math.min(state.trayW || maxTrayW, maxTrayW);
-    state.trayH = Math.min(state.trayH || maxH, maxH);
-    return state.trayW !== prevW || state.trayH !== prevH;
+  function isPieceInsideTray(piece) {
+    const { dw, dh } = getTrayPieceDisplaySize(piece);
+    return piece.trayX >= TRAY_PAD
+      && piece.trayY >= TRAY_PAD
+      && piece.trayX + dw <= state.trayW - TRAY_PAD
+      && piece.trayY + dh <= state.trayH - TRAY_PAD;
+  }
+
+  function repairTrayPieces(unlocked = state.pieces.filter((p) => !p.locked)) {
+    if (!unlocked.length) return false;
+    applyTraySizeForCount(unlocked.length);
+
+    const occupied = [];
+    let changed = false;
+    for (const piece of unlocked) {
+      const { dw, dh } = getTrayPieceDisplaySize(piece);
+      const overlaps = overlapsTrayRect(piece.trayX, piece.trayY, dw, dh, occupied, TRAY_GAP);
+      const outOfBounds = !isPieceInsideTray(piece);
+      if (overlaps || outOfBounds) {
+        const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+        piece.trayX = pos.x;
+        piece.trayY = pos.y;
+        piece._composed = null;
+        changed = true;
+      }
+      occupied.push({ x: piece.trayX, y: piece.trayY, w: dw, h: dh });
+    }
+    return changed;
   }
 
   function getPlayTrayChromeHeight() {
-    const countLine = 14;
-    const padding = 6;
-    const count = getTrayUnlockedCount();
-    return Math.min(getTrayMaxHeight(count), state.trayH || getTrayMaxHeight(count)) + countLine + padding;
+    const count = Math.max(getTrayUnlockedCount(), 1);
+    return estimateTraySize(count).h + 20;
   }
 
   function getPlayChromeHeight() {
@@ -2936,10 +2948,7 @@
 
   function syncPlayLayout() {
     if (state.screen !== 'play' || !state.pieces.length) return;
-    const count = getTrayUnlockedCount();
-    capTrayDimensions(count);
-    ensureTrayPiecesSeparated();
-    capTrayDimensions(count);
+    repairTrayPieces();
     applyPlayBoardScale(getPlayBoardScale());
     resizeCanvases();
     drawBoard();
@@ -3096,43 +3105,37 @@
 
   function estimateTraySize(count) {
     const maxTrayW = Math.min(340, window.innerWidth - 32);
-    const pad = TRAY_PAD;
-    const maxH = getTrayMaxHeight(count);
     const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
     const slot = maxDim + TRAY_GAP;
-    const rows = count <= 4 ? (count <= 2 ? 1 : 2) : 2;
+    const rows = count <= 2 ? 1 : 2;
     const cols = Math.ceil(count / rows);
     return {
-      w: Math.min(maxTrayW, Math.max(180, pad * 2 + cols * slot)),
-      h: Math.min(maxH, pad * 2 + rows * slot),
+      w: Math.min(maxTrayW, Math.max(180, TRAY_PAD * 2 + cols * slot)),
+      h: Math.max(88, TRAY_PAD * 2 + rows * slot),
     };
   }
 
   function finalizeTrayBounds(unlocked) {
-    const maxTrayW = Math.min(340, window.innerWidth - 32);
-    const pad = TRAY_PAD;
-    let maxX = pad;
-    let maxY = pad;
-    unlocked.forEach((p) => {
-      const { dw, dh } = getTrayPieceDisplaySize(p);
-      maxX = Math.max(maxX, p.trayX + dw + pad);
-      maxY = Math.max(maxY, p.trayY + dh + pad);
-    });
-    state.trayW = Math.max(160, Math.min(maxTrayW, maxX));
-    state.trayH = Math.min(getTrayMaxHeight(unlocked.length), Math.max(88, maxY));
+    applyTraySizeForCount(unlocked.length);
   }
 
   function findTrayPlacement(piece, occupied, { expandTray = true } = {}) {
-    const maxTrayW = Math.min(340, window.innerWidth - 40);
+    const maxTrayW = Math.min(340, window.innerWidth - 32);
     const pad = TRAY_PAD;
     const gap = TRAY_GAP;
     const { dw, dh } = getTrayPieceDisplaySize(piece);
+
+    const fits = (x, y) =>
+      x >= pad && y >= pad
+      && x + dw <= state.trayW - pad
+      && y + dh <= state.trayH - pad
+      && !overlapsTrayRect(x, y, dw, dh, occupied, gap);
 
     const tryRandom = () => {
       for (let attempt = 0; attempt < 180; attempt++) {
         const x = pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2);
         const y = pad + Math.random() * Math.max(1, state.trayH - dh - pad * 2);
-        if (!overlapsTrayRect(x, y, dw, dh, occupied, gap)) return { x, y };
+        if (fits(x, y)) return { x, y };
       }
       return null;
     };
@@ -3140,7 +3143,7 @@
     const tryScan = () => {
       for (let y = pad; y <= state.trayH - dh - pad; y += 6) {
         for (let x = pad; x <= state.trayW - dw - pad; x += 6) {
-          if (!overlapsTrayRect(x, y, dw, dh, occupied, gap)) return { x, y };
+          if (fits(x, y)) return { x, y };
         }
       }
       return null;
@@ -3148,7 +3151,6 @@
 
     let pos = tryRandom() || tryScan();
     let expandAttempts = 0;
-    const maxH = getTrayMaxHeight();
     while (!pos && expandTray && expandAttempts < 8) {
       expandAttempts += 1;
       if (state.trayW < maxTrayW) {
@@ -3160,11 +3162,12 @@
     }
 
     if (!pos) {
-      const baseY = occupied.reduce((maxY, r) => Math.max(maxY, r.y + r.h + gap), pad);
-      pos = {
-        x: pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2),
-        y: Math.min(baseY, Math.max(pad, maxH - dh - pad)),
-      };
+      for (let y = pad; y <= state.trayH - dh - pad; y += 4) {
+        for (let x = pad; x <= state.trayW - dw - pad; x += 4) {
+          if (fits(x, y)) return { x, y };
+        }
+      }
+      return { x: pad, y: pad };
     }
 
     return pos;
@@ -3181,36 +3184,22 @@
   }
 
   function ensureTrayPiecesSeparated() {
-    const unlocked = state.pieces.filter((p) => !p.locked);
-    if (!unlocked.length) return false;
-
-    const occupied = [];
-    let changed = false;
-    for (const piece of unlocked) {
-      const { dw, dh } = getTrayPieceDisplaySize(piece);
-      if (overlapsTrayRect(piece.trayX, piece.trayY, dw, dh, occupied, TRAY_GAP)) {
-        const pos = findTrayPlacement(piece, occupied);
-        piece.trayX = pos.x;
-        piece.trayY = pos.y;
-        piece._composed = null;
-        changed = true;
-      }
-      occupied.push({ x: piece.trayX, y: piece.trayY, w: dw, h: dh });
-    }
-
-    if (changed) finalizeTrayBounds(unlocked);
-    return changed;
+    return repairTrayPieces();
   }
 
   function returnPieceToTray(piece) {
     piece._composed = null;
-    placePieceRandomlyInTray(piece);
-    finalizeTrayBounds(state.pieces.filter((p) => !p.locked));
-    ensureTrayPiecesSeparated();
-    resizeTrayCanvas();
-    drawTray();
+    const unlocked = state.pieces.filter((p) => !p.locked);
+    applyTraySizeForCount(unlocked.length);
+
+    const occupied = getTrayOccupiedRects(piece);
+    const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+    piece.trayX = pos.x;
+    piece.trayY = pos.y;
+
+    repairTrayPieces(unlocked);
     updateTrayCount();
-    requestAnimationFrame(() => fitPlayBoardToTray());
+    requestAnimationFrame(() => syncPlayLayout());
   }
 
   function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
@@ -3225,14 +3214,11 @@
 
     const occupied = [];
     unlocked.forEach((p) => placePieceRandomlyInTray(p, occupied));
-    finalizeTrayBounds(unlocked);
-    capTrayDimensions(count);
+    repairTrayPieces(unlocked);
   }
 
   function scatterTrayPieces({ randomize = false } = {}) {
     const unlocked = state.pieces.filter(p => !p.locked);
-    const maxTrayW = Math.min(340, window.innerWidth - 40);
-    const pad = 10;
 
     if (!unlocked.length) {
       state.trayW = 160;
@@ -3244,15 +3230,8 @@
     if (randomize) {
       spreadTrayPieces(unlocked, { shuffle: true });
     } else {
-      let maxX = pad;
-      let maxY = pad;
-      unlocked.forEach((p) => {
-        const { dw, dh } = getTrayPieceDisplaySize(p);
-        maxX = Math.max(maxX, p.trayX + dw + pad);
-        maxY = Math.max(maxY, p.trayY + dh + pad);
-      });
-      state.trayW = Math.max(160, Math.min(maxTrayW, maxX));
-      state.trayH = Math.max(88, maxY);
+      applyTraySizeForCount(unlocked.length);
+      repairTrayPieces(unlocked);
     }
 
     resizeTrayCanvas();
@@ -3270,12 +3249,9 @@
 
   /** Resize tray bitmap, wipe stale pixels, redraw remaining pieces */
   function refreshTray() {
-    const count = getTrayUnlockedCount();
-    capTrayDimensions(count);
-    ensureTrayPiecesSeparated();
-    scatterTrayPieces({ randomize: false });
-    syncPlayLayout();
+    repairTrayPieces();
     updateTrayCount();
+    requestAnimationFrame(() => syncPlayLayout());
   }
 
   function updateTrayCount() {
@@ -3373,8 +3349,7 @@
   }
 
   function drawTray() {
-    ensureTrayPiecesSeparated();
-    capTrayDimensions();
+    repairTrayPieces();
     resizeTrayCanvas();
     const ctx = trayCanvas.getContext('2d');
     const w = state.trayW;
