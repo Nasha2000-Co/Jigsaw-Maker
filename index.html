@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151701">
+  <meta name="app-version" content="202607151711">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -5309,79 +5309,22 @@
     return parseFloat(ls) || fontSize * 0.28;
   }
 
-  /** Map live decorate screen → 1080×1920 export (true WYSIWYG). */
+  /** Fixed story scale (1080×1920) with overlay positions mapped from the decorate puzzle card. */
   function buildExportLayout(exportW, exportH) {
     resetDecorateScroll();
     refreshDecorateLayout();
 
-    const h1 = document.querySelector('header h1');
-    const canvas = decorateCanvas;
-    if (!h1 || !canvas || state.screen !== 'decorate') {
-      return { mode: 'centered', metrics: getCenteredExportMetrics(exportW, exportH) };
-    }
-
-    const h1Rect = h1.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-
-    let compTop = h1Rect.top;
-    let compBottom = canvasRect.bottom;
-    let compLeft = canvasRect.left;
-    let compRight = canvasRect.right;
-
-    for (const overlay of state.overlays) {
-      const r = overlay.el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      compTop = Math.min(compTop, r.top);
-      compBottom = Math.max(compBottom, r.bottom);
-      compLeft = Math.min(compLeft, r.left);
-      compRight = Math.max(compRight, r.right);
-    }
-
-    const compW = Math.max(1, compRight - compLeft);
-    const compH = Math.max(1, compBottom - compTop);
-    const sx = exportW / EXPORT_SIZE.W;
-    const sy = exportH / EXPORT_SIZE.H;
-    const marginX = 56 * sx;
-    const marginY = 72 * sy;
-    const creditReserve = 88 * sy;
-    const scale = Math.min(
-      (exportW - marginX * 2) / compW,
-      (exportH - marginY * 2 - creditReserve) / compH
-    );
-    const drawnW = compW * scale;
-    const drawnH = compH * scale;
-    const offsetX = (exportW - drawnW) / 2;
-    const offsetY = (exportH - creditReserve - drawnH) / 2;
-
-    const mapX = (clientX) => offsetX + (clientX - compLeft) * scale;
-    const mapY = (clientY) => offsetY + (clientY - compTop) * scale;
-    const mapW = (w) => w * scale;
-    const mapH = (h) => h * scale;
-
-    const h1Style = getComputedStyle(h1);
-    const titleFontSize = parseFloat(h1Style.fontSize) * scale;
-    const titleLetterSpacing = readLetterSpacingPx(h1Style, parseFloat(h1Style.fontSize)) * scale;
-
+    const metrics = getCenteredExportMetrics(exportW, exportH);
     return {
-      mode: 'wysiwyg',
-      scale,
-      mapX,
-      mapY,
-      mapW,
-      mapH,
-      titleY: mapY(h1Rect.top + h1Rect.height / 2),
-      titleCenterX: mapX(h1Rect.left + h1Rect.width / 2),
-      titleFontSize,
-      titleLetterSpacing,
+      mode: 'centered',
+      metrics,
       card: {
-        x: Math.round(mapX(canvasRect.left)),
-        y: Math.round(mapY(canvasRect.top)),
-        w: Math.round(mapW(canvasRect.width)),
-        h: Math.round(mapH(canvasRect.height)),
-        radius: Math.max(8, Math.round(14 * (canvasRect.width / PUZZLE_WIDTH) * scale)),
+        x: metrics.cardX,
+        y: metrics.cardY,
+        w: metrics.cardW,
+        h: metrics.cardH,
+        radius: metrics.cardRadius,
       },
-      creditY: offsetY + drawnH + creditReserve * 0.58,
-      creditFontSize: 34 * sy,
     };
   }
 
@@ -5565,51 +5508,44 @@
     return null;
   }
 
-  function drawExportOverlays(ctx, exportLayout) {
-    if (!exportLayout) return;
+  function drawExportOverlayItem(ctx, overlay, card, layout) {
+    const scaleX = card.w / layout.puzzleW;
+    const scaleY = card.h / layout.puzzleH;
+    const scale = (scaleX + scaleY) / 2;
+    const puzzleX = layout.puzzleX || 0;
+    const puzzleY = layout.puzzleY || 0;
+    const overlayOffsetX = layout.overlayOffsetX || 0;
+    const overlayOffsetY = layout.overlayOffsetY || 0;
 
-    if (exportLayout.mode === 'centered') {
-      const layout = state.decorateLayout;
-      const metrics = exportLayout.metrics;
-      if (!layout?.puzzleW || !layout?.puzzleH || !metrics) return;
-      const card = {
-        x: metrics.cardX,
-        y: metrics.cardY,
-        w: metrics.cardW,
-        h: metrics.cardH,
-      };
-      const scaleX = card.w / layout.puzzleW;
-      const scaleY = card.h / layout.puzzleH;
-      const puzzleX = layout.puzzleX || 0;
-      const puzzleY = layout.puzzleY || 0;
-      const overlayOffsetX = layout.overlayOffsetX || 0;
-      const overlayOffsetY = layout.overlayOffsetY || 0;
+    const relX = (overlay.x + overlayOffsetX) - puzzleX;
+    const relY = (overlay.y + overlayOffsetY) - puzzleY;
+    const x = card.x + relX * scaleX;
+    const y = card.y + relY * scaleY;
 
-      for (const overlay of state.overlays) {
-        const relX = (overlay.x + overlayOffsetX) - puzzleX;
-        const relY = (overlay.y + overlayOffsetY) - puzzleY;
-        const x = card.x + relX * scaleX;
-        const y = card.y + relY * scaleY;
-        ctx.save();
-        if (overlay.type === 'sticker') {
-          const img = getStickerDrawImage(overlay);
-          if (img) ctx.drawImage(img, x, y, overlay.w * scaleX, overlay.h * scaleY);
-        }
-        ctx.restore();
+    ctx.save();
+    if (overlay.type === 'sticker') {
+      const w = overlay.w * scaleX;
+      const h = overlay.h * scaleY;
+      if (overlay.rotation) {
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        ctx.translate(cx, cy);
+        ctx.rotate((overlay.rotation * Math.PI) / 180);
+        ctx.translate(-cx, -cy);
       }
-      return;
-    }
+      const img = getStickerDrawImage(overlay);
+      if (img) ctx.drawImage(img, x, y, w, h);
+    } else {
+      const fs = (overlay.fontSize || 24) * scale;
+      const fontFamily = getFontFamily(overlay.fontKey);
+      const color = overlay.color || DEFAULT_TEXT_STYLE.color;
+      const padX = fs * 0.42;
+      const padY = fs * 0.28;
+      ctx.font = `${fs}px ${fontFamily}`;
+      const textW = ctx.measureText(overlay.text).width;
+      const w = Math.max(overlay.w * scaleX, textW + padX * 2);
+      const h = Math.max(overlay.h * scaleY, fs * 1.2 + padY * 2);
 
-    for (const overlay of state.overlays) {
-      const r = overlay.el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-
-      const x = exportLayout.mapX(r.left);
-      const y = exportLayout.mapY(r.top);
-      const w = exportLayout.mapW(r.width);
-      const h = exportLayout.mapH(r.height);
-
-      ctx.save();
       if (overlay.rotation) {
         const cx = x + w / 2;
         const cy = y + h / 2;
@@ -5618,33 +5554,36 @@
         ctx.translate(-cx, -cy);
       }
 
-      if (overlay.type === 'sticker') {
-        const img = getStickerDrawImage(overlay);
-        if (img) ctx.drawImage(img, x, y, w, h);
-      } else {
-        const fs = (overlay.fontSize || 24) * exportLayout.scale;
-        const fontFamily = getFontFamily(overlay.fontKey);
-        const color = overlay.color || DEFAULT_TEXT_STYLE.color;
-        const padX = fs * 0.42;
-        const padY = fs * 0.28;
-        ctx.font = `${fs}px ${fontFamily}`;
-        const textW = ctx.measureText(overlay.text).width;
-        const boxW = Math.max(w, textW + padX * 2);
-        const boxH = Math.max(h, fs * 1.2 + padY * 2);
-
-        const bgColor = normalizeBgColor(overlay.bgColor);
-        if (bgColor) {
-          ctx.fillStyle = bgColor;
-          ctx.beginPath();
-          ctx.roundRect(x, y, boxW, boxH, boxH / 2);
-          ctx.fill();
-        }
-
-        ctx.fillStyle = color;
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(overlay.text, x + padX, y + padY + fs * 0.88);
+      const bgColor = normalizeBgColor(overlay.bgColor);
+      if (bgColor) {
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, h / 2);
+        ctx.fill();
       }
-      ctx.restore();
+
+      ctx.fillStyle = color;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(overlay.text, x + padX, y + padY + fs * 0.88);
+    }
+    ctx.restore();
+  }
+
+  function drawExportOverlays(ctx, exportLayout) {
+    if (!exportLayout?.metrics) return;
+
+    const layout = state.decorateLayout;
+    if (!layout?.puzzleW || !layout?.puzzleH) return;
+
+    const card = exportLayout.card || {
+      x: exportLayout.metrics.cardX,
+      y: exportLayout.metrics.cardY,
+      w: exportLayout.metrics.cardW,
+      h: exportLayout.metrics.cardH,
+    };
+
+    for (const overlay of state.overlays) {
+      drawExportOverlayItem(ctx, overlay, card, layout);
     }
   }
 
@@ -5682,18 +5621,8 @@
     }
 
     const exportLayout = buildExportLayout(W, H);
-    const metrics = exportLayout.mode === 'wysiwyg'
-      ? exportLayout
-      : exportLayout.metrics;
-    const card = exportLayout.mode === 'wysiwyg'
-      ? exportLayout.card
-      : {
-          x: metrics.cardX,
-          y: metrics.cardY,
-          w: metrics.cardW,
-          h: metrics.cardH,
-          radius: metrics.cardRadius,
-        };
+    const metrics = exportLayout.metrics;
+    const card = exportLayout.card;
 
     drawExportTitle(ctx, W, metrics);
     drawExportCardShadow(ctx, card);
