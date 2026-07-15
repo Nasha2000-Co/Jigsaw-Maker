@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151722">
+  <meta name="app-version" content="202607151727">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -2120,8 +2120,8 @@
       const padTop = (rect.y - row * nativeCellH) * boardScale;
       const dw = canvasW * boardScale;
       const dh = canvasH * boardScale;
-      const x = col * cellW - padLeft;
-      const y = row * cellH - padTop;
+      const x = col * cellW + padLeft;
+      const y = row * cellH + padTop;
       return {
         x,
         y,
@@ -5833,8 +5833,8 @@
         const slotErrors = pieces.map((p) => ({
           row: p.row,
           col: p.col,
-          dx: p.drawX + p.padLeft - p.col * cellW,
-          dy: p.drawY + p.padTop - p.row * cellH,
+          dx: p.drawX - p.padLeft - p.col * cellW,
+          dy: p.drawY - p.padTop - p.row * cellH,
         }));
         const maxErr = slotErrors.reduce(
           (acc, e) => ({
