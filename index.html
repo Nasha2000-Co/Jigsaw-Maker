@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151356">
+  <meta name="app-version" content="202607151359">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1080,6 +1080,10 @@
       pointer-events: none;
     }
 
+    .color-swatch-photo {
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+    }
+
     .color-tool-btn {
       width: 28px;
       height: 28px;
@@ -1972,11 +1976,11 @@
     trayH: 0,
     assembledCanvas: null,
     strokeColor: '#ffffff',
-    exportBgMode: 'photo',
+    exportBgMode: 'color',
     exportBgImageId: 'default',
     exportBgColor: '#f5ebe0',
     exportBgUserOverride: false,
-    photoBgTint: null,
+    photoBgColor: null,
     decorateReady: false,
     decorateLayout: null,
     decorateLayoutObserver: null,
@@ -2152,8 +2156,9 @@
     screens[name].classList.add('active');
     if (name === 'decorate') {
       closeDecorateSheets();
-      if (state.photoBgTint && !state.exportBgUserOverride) {
-        state.exportBgMode = 'photo';
+      if (state.photoBgColor && !state.exportBgUserOverride) {
+        state.exportBgMode = 'color';
+        state.exportBgColor = state.photoBgColor;
       }
       applyExportBgPreview();
     } else {
@@ -2250,8 +2255,9 @@
       uploadPreview.src = state.image.src;
       uploadLabel.classList.add('has-image');
       btnStart.disabled = false;
-      state.photoBgTint = extractPhotoBgTint(state.image);
-      state.exportBgMode = 'photo';
+      state.photoBgColor = extractPhotoBgColor(state.image);
+      state.exportBgColor = state.photoBgColor;
+      state.exportBgMode = 'color';
       state.exportBgUserOverride = false;
       applyDefaultAppBg();
       syncExportBgUI();
@@ -2343,60 +2349,35 @@
     bgEl.style.backgroundAttachment = '';
   }
 
-  function applyPhotoBgTintToElement(bgEl, tint = state.photoBgTint) {
+  function applySolidBgColor(bgEl, color) {
+    if (!bgEl) return;
     clearAppBgImageStyles(bgEl);
-    if (tint) {
-      bgEl.style.backgroundColor = tint.base;
-      bgEl.style.background = tint.gradient;
-    } else {
-      bgEl.style.backgroundColor = DEFAULT_APP_BG_COLOR;
-      bgEl.style.background = DEFAULT_APP_BG_COLOR;
-    }
+    const hex = normalizeHexColor(color || DEFAULT_APP_BG_COLOR);
+    bgEl.style.backgroundColor = hex;
+    bgEl.style.background = hex;
   }
 
-  function drawPhotoTintBackground(ctx, w, h, tint = state.photoBgTint) {
-    if (!tint) {
-      ctx.fillStyle = DEFAULT_APP_BG_COLOR;
-      ctx.fillRect(0, 0, w, h);
-      return;
-    }
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, tint.top);
-    grad.addColorStop(0.48, tint.base);
-    grad.addColorStop(1, tint.bottom);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+  function getActiveAppBgColor() {
+    return state.photoBgColor || DEFAULT_APP_BG_COLOR;
   }
 
   function applyDefaultAppBg() {
-    const bgEl = $('.bg');
-    if (!bgEl) return;
-    applyPhotoBgTintToElement(bgEl);
+    applySolidBgColor($('.bg'), getActiveAppBgColor());
     invalidateBgSampleCanvas();
   }
 
   function applyExportBgPreview() {
     const bgEl = $('.bg');
     if (!bgEl) return;
-    if (
-      state.exportBgMode === 'photo'
-      || (!state.exportBgUserOverride && state.photoBgTint)
-    ) {
-      state.exportBgMode = 'photo';
-      applyPhotoBgTintToElement(bgEl);
+    if (!state.exportBgUserOverride && state.photoBgColor) {
+      applySolidBgColor(bgEl, state.photoBgColor);
       invalidateExportWarm();
       invalidateBgSampleCanvas();
       scheduleExportWarm();
       return;
     }
     if (state.exportBgMode === 'color') {
-      bgEl.style.backgroundImage = 'none';
-      bgEl.style.backgroundSize = '';
-      bgEl.style.backgroundPosition = '';
-      bgEl.style.backgroundRepeat = '';
-      bgEl.style.backgroundAttachment = '';
-      bgEl.style.backgroundColor = state.exportBgColor;
-      bgEl.style.background = state.exportBgColor;
+      applySolidBgColor(bgEl, state.exportBgColor);
       invalidateExportWarm();
       invalidateBgSampleCanvas();
       scheduleExportWarm();
@@ -2424,7 +2405,43 @@
   }
 
   function isPresetExportBgColor(hex) {
-    return EXPORT_BG_COLORS.some((c) => c.value.toLowerCase() === normalizeHexColor(hex));
+    const color = normalizeHexColor(hex);
+    if (state.photoBgColor && color === normalizeHexColor(state.photoBgColor)) return true;
+    return EXPORT_BG_COLORS.some((c) => c.value.toLowerCase() === color);
+  }
+
+  function applyExportBgPhoto() {
+    if (!state.photoBgColor) return;
+    state.exportBgUserOverride = false;
+    state.exportBgColor = state.photoBgColor;
+    state.exportBgMode = 'color';
+    syncExportBgUI();
+    applyExportBgPreview();
+    invalidateBgSampleCanvas();
+  }
+
+  function refreshExportBgPhotoSwatch() {
+    const swatchRow = $('#export-bg-color-swatches');
+    const row = swatchRow?.querySelector('.export-bg-colors .color-swatches');
+    if (!row) return;
+
+    let btn = row.querySelector('[data-export-bg-photo]');
+    if (!state.photoBgColor) {
+      btn?.remove();
+      return;
+    }
+
+    const hex = normalizeHexColor(state.photoBgColor);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-swatch color-swatch-photo';
+      btn.dataset.exportBgPhoto = hex;
+      btn.title = 'From your photo';
+      row.prepend(btn);
+    }
+    btn.dataset.exportBgPhoto = hex;
+    btn.style.background = hex;
   }
 
   function applyExportBgImage(id) {
@@ -2451,6 +2468,8 @@
     const swatchRow = $('#export-bg-color-swatches');
     if (!swatchRow) return;
 
+    refreshExportBgPhotoSwatch();
+
     swatchRow.querySelectorAll('[data-export-bg-image]').forEach((btn) => {
       btn.classList.toggle(
         'active',
@@ -2458,12 +2477,22 @@
       );
     });
 
-    const color = normalizeHexColor(state.exportBgColor);
-    const isCustom = !isPresetExportBgColor(color);
+    const usingPhoto = !state.exportBgUserOverride && !!state.photoBgColor && state.exportBgMode === 'color';
+    const color = usingPhoto
+      ? normalizeHexColor(state.photoBgColor)
+      : normalizeHexColor(state.exportBgColor);
+    const isCustom = state.exportBgUserOverride
+      && state.exportBgMode === 'color'
+      && !isPresetExportBgColor(color);
+
+    swatchRow.querySelector('[data-export-bg-photo]')?.classList.toggle('active', usingPhoto);
+
     swatchRow.querySelectorAll('[data-export-bg-color]').forEach((btn) => {
       btn.classList.toggle(
         'active',
-        state.exportBgMode === 'color' && normalizeHexColor(btn.dataset.exportBgColor) === color
+        state.exportBgUserOverride
+          && state.exportBgMode === 'color'
+          && normalizeHexColor(btn.dataset.exportBgColor) === color
       );
     });
     const customBtn = swatchRow.querySelector('.export-bg-colors .color-swatch-custom');
@@ -2509,6 +2538,10 @@
       const imageSwatch = e.target.closest('[data-export-bg-image]');
       if (imageSwatch) {
         applyExportBgImage(imageSwatch.dataset.exportBgImage);
+        return;
+      }
+      if (e.target.closest('[data-export-bg-photo]')) {
+        applyExportBgPhoto();
         return;
       }
       const swatch = e.target.closest('[data-export-bg-color]');
@@ -2697,7 +2730,10 @@
     state.decorateReady = false;
     if (!preserveProgress) {
       state.exportBgUserOverride = false;
-      if (state.photoBgTint) state.exportBgMode = 'photo';
+      if (state.photoBgColor) {
+        state.exportBgMode = 'color';
+        if (!state.exportBgUserOverride) state.exportBgColor = state.photoBgColor;
+      }
     }
 
     const lockedSet = preserveProgress
@@ -3499,8 +3535,8 @@
     return pixelToHex(r, g, b);
   }
 
-  /** Sample uploaded photo and build a soft pastel full-screen tint. */
-  function extractPhotoBgTint(img) {
+  /** Sample uploaded photo and pick one soft pastel background color. */
+  function extractPhotoBgColor(img) {
     const sampleW = 48;
     const sampleH = 64;
     const canvas = document.createElement('canvas');
@@ -3541,15 +3577,7 @@
     let [h, s, l] = rgbToHsl(rSum / count, gSum / count, bSum / count);
     s = Math.min(58, s * 0.52 + 16);
     l = Math.min(93, Math.max(80, l * 0.32 + 60));
-    const base = hslToHex(h, s, l);
-    const top = hslToHex(h, s * 0.82, Math.min(96, l + 7));
-    const bottom = hslToHex(h, Math.min(62, s * 1.08), Math.max(72, l - 9));
-    return {
-      base,
-      top,
-      bottom,
-      gradient: `linear-gradient(180deg, ${top} 0%, ${base} 48%, ${bottom} 100%)`,
-    };
+    return hslToHex(h, s, l);
   }
 
   function isPresetTextColor(color) {
@@ -3614,9 +3642,10 @@
   async function ensureBgSampleCanvas() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const key = state.exportBgMode === 'photo'
-      ? `photo|${state.photoBgTint?.base || DEFAULT_APP_BG_COLOR}|${w}|${h}`
-      : `${state.exportBgMode}|${state.exportBgColor}|${state.exportBgImageId}|${w}|${h}`;
+    const activeExportColor = !state.exportBgUserOverride && state.photoBgColor
+      ? normalizeHexColor(state.photoBgColor)
+      : normalizeHexColor(state.exportBgColor);
+    const key = `${state.exportBgMode}|${activeExportColor}|${state.exportBgImageId}|${w}|${h}`;
     if (bgSampleState.canvas && bgSampleState.key === key) {
       return bgSampleState.canvas;
     }
@@ -3626,10 +3655,8 @@
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    if (state.exportBgMode === 'photo') {
-      drawPhotoTintBackground(ctx, w, h);
-    } else if (state.exportBgMode === 'color') {
-      ctx.fillStyle = state.exportBgColor;
+    if (state.exportBgMode === 'color' || (!state.exportBgUserOverride && state.photoBgColor)) {
+      ctx.fillStyle = activeExportColor;
       ctx.fillRect(0, 0, w, h);
     } else {
       try {
@@ -4768,10 +4795,12 @@
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    if (state.exportBgMode === 'photo') {
-      drawPhotoTintBackground(ctx, W, H);
-    } else if (state.exportBgMode === 'color') {
-      ctx.fillStyle = state.exportBgColor;
+    const exportFillColor = !state.exportBgUserOverride && state.photoBgColor
+      ? normalizeHexColor(state.photoBgColor)
+      : normalizeHexColor(state.exportBgColor);
+
+    if (state.exportBgMode === 'color' || (!state.exportBgUserOverride && state.photoBgColor)) {
+      ctx.fillStyle = exportFillColor;
       ctx.fillRect(0, 0, W, H);
     } else {
       try {
