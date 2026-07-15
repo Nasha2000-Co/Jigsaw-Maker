@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607142344">
+  <meta name="app-version" content="202607151324">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -244,53 +244,87 @@
     }
 
     .app:has(#screen-play.active) header h1 {
-      font-size: clamp(18px, 4.5vw, 22px);
-      letter-spacing: 0.28em;
-      text-indent: 0.28em;
-    }
-
-    .play-header-bar {
       display: none;
-      width: 100%;
-      margin-bottom: 6px;
     }
 
-    .app:has(#screen-play.active) .play-header-bar {
-      display: block;
+    .app:has(#screen-play.active) header {
+      padding: 6px 16px 2px;
+    }
+
+    .app:has(#screen-play.active) main {
+      overflow: hidden;
+      min-height: 0;
+      padding: 0 16px;
     }
 
     .app:has(#screen-play.active) footer {
-      padding: 6px 20px 10px;
+      display: none;
+    }
+
+    .app:has(#screen-play.active) .play-header-bar {
+      margin-bottom: 0;
     }
 
     #screen-play {
       padding-top: 0;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      justify-content: flex-start;
+      gap: 0;
+    }
+
+    #screen-play .play-top {
+      flex-shrink: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     #screen-play .grid-hint {
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     #screen-play .grid-pills {
-      margin-bottom: 8px;
-    }
-
-    #screen-play .board-wrap {
       margin-bottom: 6px;
     }
 
+    #screen-play .board-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0;
+    }
+
+    #screen-play .play-bottom {
+      flex-shrink: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 4px;
+    }
+
     #screen-play .tray-wrap {
-      margin-bottom: 4px;
+      margin-bottom: 2px;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
     }
 
     #screen-play .play-hint {
-      margin-bottom: 0;
-      font-size: 10px;
+      display: none;
     }
 
     #screen-play .tray-count {
-      margin: 2px 0 0;
-      min-height: 16px;
+      margin: 0;
+      min-height: 14px;
+      font-size: 11px;
     }
 
     .app:has(#screen-upload.active) footer {
@@ -478,6 +512,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-bottom: 0;
       padding: 0 2px;
     }
@@ -508,9 +543,22 @@
 
     #screen-play .btn-save-top {
       margin-top: 0;
-      padding: 10px 28px;
-      font-size: 16px;
+      padding: 0 14px;
+      min-height: 36px;
+      font-size: 14px;
+      line-height: 1;
       flex-shrink: 0;
+      border-radius: 999px;
+    }
+
+    .play-header-bar {
+      display: none;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+
+    .app:has(#screen-play.active) .play-header-bar {
+      display: block;
     }
 
     .decorate-toolbar {
@@ -561,6 +609,12 @@
       justify-self: end;
     }
 
+    .app:has(#screen-play.active) .btn-back {
+      width: 36px;
+      height: 36px;
+      font-size: 18px;
+    }
+
     .grid-hint {
       font-size: 11px;
       color: #666;
@@ -576,9 +630,9 @@
 
     .grid-pill {
       font-family: var(--sans);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
-      padding: 7px 18px;
+      padding: 6px 14px;
       border-radius: 999px;
       border: 1.5px solid var(--black);
       background: rgba(255,255,255,0.6);
@@ -1425,20 +1479,24 @@
 
       <!-- Screen 2: Play -->
       <section id="screen-play" class="screen">
-        <p class="grid-hint">Tap to switch grid</p>
-        <div class="grid-pills" id="grid-pills">
-          <button class="grid-pill" data-grid="3x2">3×2</button>
-          <button class="grid-pill active" data-grid="3x3">3×3</button>
-          <button class="grid-pill" data-grid="4x3">4×3</button>
+        <div class="play-top">
+          <p class="grid-hint">Tap to switch grid</p>
+          <div class="grid-pills" id="grid-pills">
+            <button class="grid-pill" data-grid="3x2">3×2</button>
+            <button class="grid-pill active" data-grid="3x3">3×3</button>
+            <button class="grid-pill" data-grid="4x3">4×3</button>
+          </div>
         </div>
         <div class="board-wrap">
           <canvas id="board-canvas"></canvas>
         </div>
-        <div class="tray-wrap">
-          <canvas id="tray-canvas"></canvas>
+        <div class="play-bottom">
+          <div class="tray-wrap">
+            <canvas id="tray-canvas"></canvas>
+          </div>
+          <p class="tray-count" id="tray-count"></p>
+          <p class="play-hint">Drag from tray → drop near correct spot → auto-snap.</p>
         </div>
-        <p class="tray-count" id="tray-count"></p>
-        <p class="play-hint">Drag from tray → drop near correct spot → auto-snap.</p>
       </section>
 
       <!-- Screen 3: Decorate / Share -->
@@ -2041,6 +2099,13 @@
     if (name === 'upload') {
       layoutUploadCard();
     }
+    if (name === 'play') {
+      requestAnimationFrame(() => {
+        if (state.image && state.pieces.length) {
+          refreshPlayLayout({ preserveProgress: true });
+        }
+      });
+    }
   }
 
   const PUZZLE_WIDTH = 300;
@@ -2456,10 +2521,64 @@
   /* ============================================================
      PUZZLE INIT
      ============================================================ */
+  function getPlayChromeHeight() {
+    const header = document.querySelector('header');
+    let chrome = header?.offsetHeight || 72;
+    const playTop = $('#screen-play .play-top');
+    const playBottom = $('#screen-play .play-bottom');
+    if (playTop) chrome += playTop.offsetHeight;
+    if (playBottom) chrome += playBottom.offsetHeight;
+    else chrome += (state.trayH || 96) + 18;
+    chrome += 8;
+    return chrome;
+  }
+
+  function planTrayDimensions(unlockedCount) {
+    const count = unlockedCount ?? state.pieces.filter((p) => !p.locked).length;
+    const maxTrayW = Math.min(340, window.innerWidth - 40);
+    const pad = 10;
+
+    if (!count) {
+      state.trayW = 160;
+      state.trayH = 88;
+      return;
+    }
+
+    const shortViewport = window.innerHeight < 740;
+    const rows = shortViewport ? 1 : (count <= 5 ? 1 : count <= 10 ? 2 : 3);
+    const cols = Math.ceil(count / rows);
+    const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / Math.max(cols, 1)));
+
+    if (shortViewport) {
+      state.trayW = Math.max(160, Math.min(maxTrayW, pad * 2 + count * Math.max(slotW, 52)));
+      state.trayH = Math.max(84, pad * 2 + 68);
+      return;
+    }
+
+    state.trayW = Math.max(160, pad * 2 + cols * Math.max(slotW, 64));
+    state.trayH = Math.max(88, pad * 2 + rows * 72);
+  }
+
   function getPlayBoardScale() {
     const maxW = window.innerWidth - 40;
-    const maxH = Math.max(160, window.innerHeight - 300);
+    const boardWrap = document.querySelector('#screen-play.active .board-wrap');
+    if (boardWrap && boardWrap.clientHeight > 60) {
+      return layoutPuzzleFrame(maxW, boardWrap.clientHeight).scale;
+    }
+    const maxH = Math.max(100, window.innerHeight - getPlayChromeHeight());
     return layoutPuzzleFrame(maxW, maxH).scale;
+  }
+
+  function refreshPlayLayout({ preserveProgress = true } = {}) {
+    if (state.screen !== 'play' || !state.image || !state.pieces.length) return;
+    const boardWrap = document.querySelector('#screen-play .board-wrap');
+    if (!boardWrap || boardWrap.clientHeight < 60) return;
+
+    const nextScale = layoutPuzzleFrame(window.innerWidth - 40, boardWrap.clientHeight).scale;
+    const currentScale = state.boardW / PUZZLE_WIDTH;
+    if (Math.abs(nextScale - currentScale) < 0.02) return;
+
+    initPuzzle({ preserveProgress });
   }
 
   function initPuzzle({ preserveProgress = false } = {}) {
@@ -2475,6 +2594,9 @@
     state.cols = cols;
 
     const img = state.image;
+    const totalPieces = rows * cols;
+    const unlockedCount = lockedSet ? totalPieces - lockedSet.size : totalPieces;
+    planTrayDimensions(unlockedCount);
     const scale = getPlayBoardScale();
     state.boardW = PUZZLE_WIDTH * scale;
     state.boardH = PUZZLE_HEIGHT * scale;
@@ -2529,12 +2651,14 @@
     updateSaveButton();
     updateTrayVisibility();
     updateTrayCount();
+    requestAnimationFrame(() => refreshPlayLayout({ preserveProgress: true }));
   }
 
   function getTrayPieceDisplaySize(piece) {
     const pw = piece.canvas.width;
     const ph = piece.canvas.height;
-    const scale = Math.min(72 / pw, 72 / ph);
+    const maxDim = window.innerHeight < 740 ? 58 : 72;
+    const scale = Math.min(maxDim / pw, maxDim / ph);
     return { dw: pw * scale, dh: ph * scale };
   }
 
@@ -2553,20 +2677,20 @@
 
     if (!unlocked.length) {
       state.trayW = 160;
-      state.trayH = 96;
+      state.trayH = 88;
       resizeTrayCanvas();
       return;
     }
 
     if (randomize) {
+      planTrayDimensions(unlocked.length);
       shuffleInPlace(unlocked);
 
       const count = unlocked.length;
-      const rows = count <= 5 ? 1 : count <= 10 ? 2 : 3;
+      const shortViewport = window.innerHeight < 740;
+      const rows = shortViewport ? 1 : (count <= 5 ? 1 : count <= 10 ? 2 : 3);
       const cols = Math.ceil(count / rows);
-      const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / cols));
-      state.trayW = Math.max(160, pad * 2 + cols * Math.max(slotW, 64));
-      state.trayH = Math.max(96, pad * 2 + rows * 78);
+      const slotW = Math.min(78, Math.floor((maxTrayW - pad * 2) / Math.max(cols, 1)));
 
       const occupied = [];
       const overlaps = (x, y, w, h) =>
