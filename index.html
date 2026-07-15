@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151416">
+  <meta name="app-version" content="202607151419">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -309,24 +309,26 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 2px;
     }
 
     #screen-play .grid-hint {
-      margin-bottom: 2px;
+      margin-bottom: 0;
+      font-size: 11px;
     }
 
     #screen-play .grid-pills {
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
 
     #screen-play .board-wrap {
-      flex: 1 1 0;
+      flex: 1 1 auto;
       min-height: 0;
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding-top: 10px;
+      padding-top: 4px;
       margin-bottom: 0;
       overflow: hidden;
     }
@@ -334,23 +336,30 @@
     #screen-play #board-canvas {
       max-width: 100%;
       max-height: 100%;
+      object-fit: contain;
     }
 
     #screen-play .play-bottom {
-      flex-shrink: 0;
+      flex: 0 0 auto;
       width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-bottom: 4px;
+      padding-bottom: 2px;
+      max-height: 34vh;
     }
 
     #screen-play .tray-wrap {
-      margin-bottom: 2px;
+      margin-bottom: 0;
       max-width: 100%;
+      max-height: 112px;
       overflow-x: auto;
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
+    }
+
+    #screen-play #tray-canvas {
+      max-height: 108px;
     }
 
     #screen-play .play-hint {
@@ -2844,30 +2853,51 @@
   /* ============================================================
      PUZZLE INIT
      ============================================================ */
+  function getTrayUnlockedCount() {
+    return state.pieces.filter((p) => !p.locked).length;
+  }
+
+  function getTrayMaxHeight(count = getTrayUnlockedCount()) {
+    if (count <= 4) return 108;
+    if (count <= 6) return 100;
+    if (count <= 9) return 94;
+    return 88;
+  }
+
+  function capTrayDimensions(count = getTrayUnlockedCount()) {
+    const maxTrayW = Math.min(340, window.innerWidth - 32);
+    const maxH = getTrayMaxHeight(count);
+    const prevW = state.trayW;
+    const prevH = state.trayH;
+    state.trayW = Math.min(state.trayW || maxTrayW, maxTrayW);
+    state.trayH = Math.min(state.trayH || maxH, maxH);
+    return state.trayW !== prevW || state.trayH !== prevH;
+  }
+
   function getPlayTrayChromeHeight() {
-    const countLine = 16;
-    const padding = 8;
-    return (state.trayH || 88) + countLine + padding;
+    const countLine = 14;
+    const padding = 6;
+    const count = getTrayUnlockedCount();
+    return Math.min(getTrayMaxHeight(count), state.trayH || getTrayMaxHeight(count)) + countLine + padding;
   }
 
   function getPlayChromeHeight() {
     const header = document.querySelector('header');
-    let chrome = header?.offsetHeight || 72;
+    let chrome = header?.offsetHeight || 56;
     const playTop = $('#screen-play .play-top');
-    const playBottom = $('#screen-play .play-bottom');
     if (playTop) chrome += playTop.offsetHeight;
-    if (playBottom && playBottom.offsetHeight > 24) {
-      chrome += playBottom.offsetHeight;
-    } else {
-      chrome += getPlayTrayChromeHeight();
-    }
-    chrome += 8;
+    chrome += getPlayTrayChromeHeight();
+    chrome += 6;
     return chrome;
   }
 
   function getPlayBoardScale() {
-    const maxW = window.innerWidth - 40;
-    const maxH = Math.max(100, window.innerHeight - getPlayChromeHeight());
+    const maxW = window.innerWidth - 32;
+    let maxH = Math.max(120, window.innerHeight - getPlayChromeHeight());
+    const boardWrap = document.querySelector('#screen-play .board-wrap');
+    if (boardWrap && boardWrap.clientHeight > 60) {
+      maxH = Math.min(maxH, boardWrap.clientHeight);
+    }
     return layoutPuzzleFrame(maxW, maxH).scale;
   }
 
@@ -2904,15 +2934,20 @@
     });
   }
 
-  function fitPlayBoardToTray() {
+  function syncPlayLayout() {
     if (state.screen !== 'play' || !state.pieces.length) return;
-    const nextScale = getPlayBoardScale();
-    const currentScale = state.boardW / PUZZLE_WIDTH;
-    if (Math.abs(nextScale - currentScale) < 0.005) return;
-    applyPlayBoardScale(nextScale);
+    const count = getTrayUnlockedCount();
+    capTrayDimensions(count);
+    ensureTrayPiecesSeparated();
+    capTrayDimensions(count);
+    applyPlayBoardScale(getPlayBoardScale());
     resizeCanvases();
     drawBoard();
     drawTray();
+  }
+
+  function fitPlayBoardToTray() {
+    syncPlayLayout();
   }
 
   function planTrayDimensions(unlockedCount) {
@@ -3014,13 +3049,18 @@
     updateSaveButton();
     updateTrayVisibility();
     updateTrayCount();
-    requestAnimationFrame(() => fitPlayBoardToTray());
+    requestAnimationFrame(() => syncPlayLayout());
   }
 
   function getTrayPieceDisplaySize(piece) {
+    const count = getTrayUnlockedCount();
     const pw = piece.canvas.width;
     const ph = piece.canvas.height;
-    const maxDim = window.innerHeight < 740 ? 58 : 72;
+    let maxDim = 64;
+    if (count >= 10) maxDim = 42;
+    else if (count >= 7) maxDim = 48;
+    else if (count >= 5) maxDim = 54;
+    if (window.innerHeight < 740) maxDim -= 4;
     const scale = Math.min(maxDim / pw, maxDim / ph);
     return { dw: pw * scale, dh: ph * scale };
   }
@@ -3055,19 +3095,21 @@
   }
 
   function estimateTraySize(count) {
-    const maxTrayW = Math.min(340, window.innerWidth - 40);
+    const maxTrayW = Math.min(340, window.innerWidth - 32);
     const pad = TRAY_PAD;
-    const pieceSlot = 76;
-    const cols = count <= 2 ? count : count <= 4 ? 2 : count <= 6 ? 3 : Math.ceil(Math.sqrt(count * 1.4));
-    const rows = Math.ceil(count / cols);
+    const maxH = getTrayMaxHeight(count);
+    const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
+    const slot = maxDim + TRAY_GAP;
+    const rows = count <= 4 ? (count <= 2 ? 1 : 2) : 2;
+    const cols = Math.ceil(count / rows);
     return {
-      w: Math.max(200, Math.min(maxTrayW, pad * 2 + cols * pieceSlot + TRAY_GAP)),
-      h: Math.max(110, pad * 2 + rows * pieceSlot + TRAY_GAP),
+      w: Math.min(maxTrayW, Math.max(180, pad * 2 + cols * slot)),
+      h: Math.min(maxH, pad * 2 + rows * slot),
     };
   }
 
   function finalizeTrayBounds(unlocked) {
-    const maxTrayW = Math.min(340, window.innerWidth - 40);
+    const maxTrayW = Math.min(340, window.innerWidth - 32);
     const pad = TRAY_PAD;
     let maxX = pad;
     let maxY = pad;
@@ -3077,7 +3119,7 @@
       maxY = Math.max(maxY, p.trayY + dh + pad);
     });
     state.trayW = Math.max(160, Math.min(maxTrayW, maxX));
-    state.trayH = Math.max(88, maxY);
+    state.trayH = Math.min(getTrayMaxHeight(unlocked.length), Math.max(88, maxY));
   }
 
   function findTrayPlacement(piece, occupied, { expandTray = true } = {}) {
@@ -3106,23 +3148,23 @@
 
     let pos = tryRandom() || tryScan();
     let expandAttempts = 0;
-    while (!pos && expandTray && expandAttempts < 12) {
+    const maxH = getTrayMaxHeight();
+    while (!pos && expandTray && expandAttempts < 8) {
       expandAttempts += 1;
       if (state.trayW < maxTrayW) {
-        state.trayW = Math.min(maxTrayW, state.trayW + Math.ceil(Math.max(dw, dh) * 0.5));
+        state.trayW = Math.min(maxTrayW, state.trayW + Math.ceil(Math.max(dw, dh) * 0.45));
+        pos = tryRandom() || tryScan();
       } else {
-        state.trayH += Math.ceil(Math.max(dw, dh) * 0.4);
+        break;
       }
-      pos = tryRandom() || tryScan();
     }
 
     if (!pos) {
       const baseY = occupied.reduce((maxY, r) => Math.max(maxY, r.y + r.h + gap), pad);
       pos = {
         x: pad + Math.random() * Math.max(1, state.trayW - dw - pad * 2),
-        y: Math.min(baseY, Math.max(pad, state.trayH - dh - pad)),
+        y: Math.min(baseY, Math.max(pad, maxH - dh - pad)),
       };
-      if (pos.y + dh + pad > state.trayH) state.trayH = pos.y + dh + pad;
     }
 
     return pos;
@@ -3184,6 +3226,7 @@
     const occupied = [];
     unlocked.forEach((p) => placePieceRandomlyInTray(p, occupied));
     finalizeTrayBounds(unlocked);
+    capTrayDimensions(count);
   }
 
   function scatterTrayPieces({ randomize = false } = {}) {
@@ -3227,9 +3270,11 @@
 
   /** Resize tray bitmap, wipe stale pixels, redraw remaining pieces */
   function refreshTray() {
+    const count = getTrayUnlockedCount();
+    capTrayDimensions(count);
     ensureTrayPiecesSeparated();
     scatterTrayPieces({ randomize: false });
-    drawTray();
+    syncPlayLayout();
     updateTrayCount();
   }
 
@@ -3329,6 +3374,7 @@
 
   function drawTray() {
     ensureTrayPiecesSeparated();
+    capTrayDimensions();
     resizeTrayCanvas();
     const ctx = trayCanvas.getContext('2d');
     const w = state.trayW;
