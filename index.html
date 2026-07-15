@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151718">
+  <meta name="app-version" content="202607151722">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -5315,7 +5315,7 @@
     return parseFloat(ls) || fontSize * 0.28;
   }
 
-  /** Fixed story scale (1080×1920) with overlay positions mapped from the decorate puzzle card. */
+  /** Fixed story scale (1080×1920); overlay positions sampled from live canvas rects. */
   function buildExportLayout(exportW, exportH) {
     resetDecorateScroll();
     refreshDecorateLayout();
@@ -5514,24 +5514,22 @@
     return null;
   }
 
-  function drawExportOverlayItem(ctx, overlay, card, layout) {
-    const scaleX = card.w / layout.puzzleW;
-    const scaleY = card.h / layout.puzzleH;
-    const scale = (scaleX + scaleY) / 2;
-    const puzzleX = layout.puzzleX || 0;
-    const puzzleY = layout.puzzleY || 0;
-    const overlayOffsetX = layout.overlayOffsetX || 0;
-    const overlayOffsetY = layout.overlayOffsetY || 0;
+  function drawExportOverlayItem(ctx, overlay, card, canvasRect) {
+    if (!canvasRect?.width || !canvasRect?.height) return;
 
-    const relX = (overlay.x + overlayOffsetX) - puzzleX;
-    const relY = (overlay.y + overlayOffsetY) - puzzleY;
-    const x = card.x + relX * scaleX;
-    const y = card.y + relY * scaleY;
+    const r = overlay.el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+
+    const scaleX = card.w / canvasRect.width;
+    const scaleY = card.h / canvasRect.height;
+    const scale = (scaleX + scaleY) / 2;
+    const x = card.x + (r.left - canvasRect.left) * scaleX;
+    const y = card.y + (r.top - canvasRect.top) * scaleY;
 
     ctx.save();
     if (overlay.type === 'sticker') {
-      const w = overlay.w * scaleX;
-      const h = overlay.h * scaleY;
+      const w = r.width * scaleX;
+      const h = r.height * scaleY;
       if (overlay.rotation) {
         const cx = x + w / 2;
         const cy = y + h / 2;
@@ -5542,15 +5540,19 @@
       const img = getStickerDrawImage(overlay);
       if (img) ctx.drawImage(img, x, y, w, h);
     } else {
-      const fs = (overlay.fontSize || 24) * scale;
+      const label = overlay.el.querySelector('.text-label');
+      const computedFs = label
+        ? parseFloat(getComputedStyle(label).fontSize)
+        : (overlay.fontSize || 24);
+      const fs = computedFs * scale;
       const fontFamily = getFontFamily(overlay.fontKey);
       const color = overlay.color || DEFAULT_TEXT_STYLE.color;
       const padX = fs * 0.42;
       const padY = fs * 0.28;
       ctx.font = `${fs}px ${fontFamily}`;
       const textW = ctx.measureText(overlay.text).width;
-      const w = Math.max(overlay.w * scaleX, textW + padX * 2);
-      const h = Math.max(overlay.h * scaleY, fs * 1.2 + padY * 2);
+      const w = Math.max(r.width * scaleX, textW + padX * 2);
+      const h = Math.max(r.height * scaleY, fs * 1.2 + padY * 2);
 
       if (overlay.rotation) {
         const cx = x + w / 2;
@@ -5575,11 +5577,8 @@
     ctx.restore();
   }
 
-  function drawExportOverlays(ctx, exportLayout) {
-    if (!exportLayout?.metrics) return;
-
-    const layout = state.decorateLayout;
-    if (!layout?.puzzleW || !layout?.puzzleH) return;
+  function drawExportOverlays(ctx, exportLayout, canvasRect) {
+    if (!exportLayout?.metrics || !canvasRect?.width) return;
 
     const card = exportLayout.card || {
       x: exportLayout.metrics.cardX,
@@ -5589,7 +5588,7 @@
     };
 
     for (const overlay of state.overlays) {
-      drawExportOverlayItem(ctx, overlay, card, layout);
+      drawExportOverlayItem(ctx, overlay, card, canvasRect);
     }
   }
 
@@ -5600,8 +5599,10 @@
     deselectAllOverlays();
     closeDecorateSheets();
     resetDecorateScroll();
+    refreshDecorateLayout();
 
     await ensureStickerImagesReady();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     const { W, H } = EXPORT_SIZE;
     const canvas = document.createElement('canvas');
@@ -5629,11 +5630,12 @@
     const exportLayout = buildExportLayout(W, H);
     const metrics = exportLayout.metrics;
     const card = exportLayout.card;
+    const canvasRect = decorateCanvas.getBoundingClientRect();
 
     drawExportTitle(ctx, W, metrics);
     drawExportCardShadow(ctx, card);
     drawExportPuzzleCard(ctx, assembled, card);
-    drawExportOverlays(ctx, exportLayout);
+    drawExportOverlays(ctx, exportLayout, canvasRect);
     drawExportCredit(ctx, W, metrics);
 
     return canvas;
