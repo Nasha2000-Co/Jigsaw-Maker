@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151328">
+  <meta name="app-version" content="202607151336">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -289,7 +289,7 @@
     }
 
     #screen-play .grid-pills {
-      margin-bottom: 6px;
+      margin-bottom: 10px;
     }
 
     #screen-play .board-wrap {
@@ -297,8 +297,9 @@
       min-height: 0;
       width: 100%;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      padding-top: 10px;
       margin-bottom: 0;
     }
 
@@ -2918,6 +2919,48 @@
     return Math.max(36, Math.min(state.cellW, state.cellH) * 0.62);
   }
 
+  let snapAudioCtx = null;
+
+  function getSnapAudioContext() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!snapAudioCtx) snapAudioCtx = new Ctx();
+    if (snapAudioCtx.state === 'suspended') snapAudioCtx.resume();
+    return snapAudioCtx;
+  }
+
+  function playSoftTone({ startFreq, endFreq, duration = 0.08, peakGain = 0.1, type = 'sine' }) {
+    try {
+      const ctx = getSnapAudioContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime;
+      osc.frequency.setValueAtTime(startFreq, t);
+      if (endFreq !== startFreq) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(endFreq, 1), t + duration);
+      }
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      osc.start(t);
+      osc.stop(t + duration + 0.02);
+    } catch {}
+  }
+
+  function playSnapSuccessFeedback() {
+    if (navigator.vibrate) navigator.vibrate(8);
+    playSoftTone({ startFreq: 920, endFreq: 1240, duration: 0.07, peakGain: 0.09, type: 'sine' });
+  }
+
+  function playSnapFailFeedback() {
+    if (navigator.vibrate) navigator.vibrate([5, 35, 5]);
+    playSoftTone({ startFreq: 240, endFreq: 170, duration: 0.11, peakGain: 0.07, type: 'triangle' });
+  }
+
   function getPieceSnapTarget(piece) {
     return { x: piece.snapX, y: piece.snapY };
   }
@@ -3003,11 +3046,17 @@
     const onBoard = bx >= -20 && bx <= state.boardW + 20 && by >= -20 && by <= state.boardH + 20;
 
     if (onBoard && dist < snapThreshold) {
+      playSnapSuccessFeedback();
       piece.locked = true;
       piece._composed = null;
       drawBoard();
       refreshTray();
       updateSaveButton();
+    } else if (onBoard) {
+      playSnapFailFeedback();
+      piece._composed = null;
+      refreshTray();
+      drawTray();
     } else {
       const trayRect = trayCanvas.getBoundingClientRect();
       const tx = clientX - trayRect.left - 32;
