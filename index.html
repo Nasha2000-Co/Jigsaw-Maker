@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151654">
+  <meta name="app-version" content="202607151659">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -2840,8 +2840,20 @@
     return state.pieces.filter((p) => !p.locked).length;
   }
 
-  function applyTraySizeForCount(count = getTrayUnlockedCount()) {
-    const size = estimateTraySize(count);
+  function getTrayCapacity() {
+    return Math.max(1, (state.rows || 1) * (state.cols || 1));
+  }
+
+  function getTraySlotMetrics(count = getTrayCapacity()) {
+    const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
+    const slot = maxDim + TRAY_GAP;
+    const layoutRows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
+    const layoutCols = Math.ceil(count / layoutRows);
+    return { maxDim, slot, layoutRows, layoutCols, count };
+  }
+
+  function applyTraySizeForCount() {
+    const size = estimateTraySize(getTrayCapacity());
     state.trayW = size.w;
     state.trayH = size.h;
   }
@@ -2856,32 +2868,13 @@
 
   function repairTrayPieces(unlocked = state.pieces.filter((p) => !p.locked)) {
     if (!unlocked.length) return false;
-    applyTraySizeForCount(unlocked.length);
-
-    const occupied = [];
-    let needsRelayout = false;
-    for (const piece of unlocked) {
-      const { dw, dh } = getTrayPieceDisplaySize(piece);
-      const overlaps = overlapsTrayRect(piece.trayX, piece.trayY, dw, dh, occupied, TRAY_GAP);
-      const outOfBounds = !isPieceInsideTray(piece);
-      if (overlaps || outOfBounds) {
-        needsRelayout = true;
-        break;
-      }
-      occupied.push({ x: piece.trayX, y: piece.trayY, w: dw, h: dh });
-    }
-
-    if (needsRelayout) {
-      layoutTrayPieces(unlocked);
-      return true;
-    }
-    return false;
+    layoutTrayPieces(unlocked);
+    return true;
   }
 
   function getPlayTrayChromeHeight() {
-    const count = getTrayUnlockedCount();
-    if (!count) return 0;
-    return estimateTraySize(count).h + 20;
+    if (!getTrayUnlockedCount()) return 0;
+    return estimateTraySize(getTrayCapacity()).h + 20;
   }
 
   function getPlayChromeHeight() {
@@ -2980,8 +2973,8 @@
   }
 
   function planTrayDimensions(unlockedCount) {
-    const count = unlockedCount ?? state.pieces.filter((p) => !p.locked).length;
-    if (!count) {
+    const count = getTrayCapacity();
+    if (!unlockedCount) {
       state.trayW = 160;
       state.trayH = 88;
       return;
@@ -3069,15 +3062,12 @@
   }
 
   function getTrayPieceDisplaySize(piece) {
-    const count = getTrayUnlockedCount();
+    const { maxDim } = getTraySlotMetrics(getTrayCapacity());
     const pw = piece.canvas.width;
     const ph = piece.canvas.height;
-    let maxDim = 64;
-    if (count >= 10) maxDim = 42;
-    else if (count >= 7) maxDim = 48;
-    else if (count >= 5) maxDim = 54;
-    if (window.innerHeight < 740) maxDim -= 4;
-    const scale = Math.min(maxDim / pw, maxDim / ph);
+    let dim = maxDim;
+    if (window.innerHeight < 740) dim -= 4;
+    const scale = Math.min(dim / pw, dim / ph);
     return { dw: pw * scale, dh: ph * scale };
   }
 
@@ -3110,15 +3100,12 @@
     ));
   }
 
-  function estimateTraySize(count) {
+  function estimateTraySize(count = getTrayCapacity()) {
     const maxTrayW = Math.min(340, window.innerWidth - 32);
-    const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
-    const slot = maxDim + TRAY_GAP;
-    const rows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
-    const cols = Math.ceil(count / rows);
+    const { slot, layoutRows, layoutCols } = getTraySlotMetrics(count);
     return {
-      w: Math.min(maxTrayW, Math.max(180, TRAY_PAD * 2 + cols * slot)),
-      h: Math.max(88, TRAY_PAD * 2 + rows * slot),
+      w: Math.min(maxTrayW, Math.max(180, TRAY_PAD * 2 + layoutCols * slot)),
+      h: Math.max(88, TRAY_PAD * 2 + layoutRows * slot),
     };
   }
 
@@ -3126,12 +3113,12 @@
     const count = unlocked.length;
     if (!count) return;
 
-    const size = estimateTraySize(count);
+    const capacity = getTrayCapacity();
+    const { slot } = getTraySlotMetrics(capacity);
+    const size = estimateTraySize(capacity);
     state.trayW = size.w;
     state.trayH = size.h;
 
-    const maxDim = count >= 10 ? 42 : count >= 7 ? 48 : count >= 5 ? 54 : 62;
-    const slot = maxDim + TRAY_GAP;
     const rows = count <= 2 ? 1 : count <= 10 ? 2 : 3;
     const cols = Math.ceil(count / rows);
     const gridW = cols * slot;
@@ -3156,7 +3143,8 @@
   }
 
   function finalizeTrayBounds(unlocked) {
-    applyTraySizeForCount(unlocked.length);
+    if (unlocked?.length) layoutTrayPieces(unlocked);
+    else applyTraySizeForCount();
   }
 
   function findTrayPlacement(piece, occupied, { expandTray = true } = {}) {
@@ -3231,17 +3219,12 @@
 
   function returnPieceToTray(piece) {
     piece._composed = null;
+    dragState = null;
+    floatingPiece.style.display = 'none';
     const unlocked = state.pieces.filter((p) => !p.locked);
-    applyTraySizeForCount(unlocked.length);
-
-    const occupied = getTrayOccupiedRects(piece);
-    const pos = findTrayPlacement(piece, occupied, { expandTray: false });
-    piece.trayX = pos.x;
-    piece.trayY = pos.y;
-
-    repairTrayPieces(unlocked);
+    layoutTrayPieces(unlocked);
     updateTrayCount();
-    syncPlayLayout();
+    drawTray();
   }
 
   function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
@@ -3265,8 +3248,7 @@
     if (randomize) {
       spreadTrayPieces(unlocked, { shuffle: true });
     } else {
-      applyTraySizeForCount(unlocked.length);
-      repairTrayPieces(unlocked);
+      layoutTrayPieces(unlocked);
     }
 
     resizeTrayCanvas();
@@ -3287,9 +3269,12 @@
     const unlocked = state.pieces.filter((p) => !p.locked);
     if (unlocked.length) {
       layoutTrayPieces(unlocked);
+    } else {
+      state.trayW = 160;
+      state.trayH = 88;
     }
     updateTrayCount();
-    requestAnimationFrame(() => syncPlayLayout());
+    drawTray();
   }
 
   function updateTrayCount() {
@@ -3405,8 +3390,10 @@
   }
 
   function drawTray() {
-    const trayBefore = { w: state.trayW, h: state.trayH };
-    repairTrayPieces();
+    const unlocked = state.pieces.filter((p) => !p.locked);
+    if (unlocked.length) {
+      layoutTrayPieces(unlocked);
+    }
     resizeTrayCanvas();
     const ctx = trayCanvas.getContext('2d');
     const w = state.trayW;
@@ -3423,10 +3410,6 @@
       p._trayDw = dw;
       p._trayDh = dh;
     });
-
-    if (Math.abs(state.trayH - trayBefore.h) > 2 || Math.abs(state.trayW - trayBefore.w) > 2) {
-      requestAnimationFrame(() => refitPlayBoard());
-    }
   }
 
   function updateTrayVisibility() {
@@ -3656,6 +3639,8 @@
       playSnapSuccessFeedback();
       piece.locked = true;
       piece._composed = null;
+      dragState = null;
+      floatingPiece.style.display = 'none';
       drawBoard();
       refreshTray();
       updateSaveButton();
