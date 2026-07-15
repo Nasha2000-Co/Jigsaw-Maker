@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151336">
+  <meta name="app-version" content="202607151338">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -196,6 +196,11 @@
       text-indent: 0.28em;
     }
 
+    .app:has(#screen-decorate.active) main {
+      overflow: visible;
+      min-height: 0;
+    }
+
     .app:has(#screen-decorate.active) footer {
       padding: 6px 20px 10px;
     }
@@ -214,6 +219,7 @@
       padding-top: 0;
       flex: 1;
       min-height: 0;
+      overflow: visible;
     }
 
     #screen-decorate .decorate-canvas-wrap {
@@ -860,10 +866,13 @@
       align-items: center;
     }
 
-    /* Overlay layers — full decorate stage, not puzzle canvas only */
+    /* Overlay layers — full decorate stage; extra bleed so stickers are never clipped */
     .overlay-layer {
       position: absolute;
-      inset: 0;
+      top: -48px;
+      left: -32px;
+      right: -32px;
+      bottom: -32px;
       pointer-events: none;
       overflow: visible;
       z-index: 2;
@@ -3133,6 +3142,8 @@
     return canvas;
   }
 
+  const DECORATE_ZONE_PAD = { top: 72, right: 36, bottom: 28, left: 36 };
+
   /**
    * Single source of truth for decorate puzzle display size.
    * Always scales uniformly to fit the stage — never stretch width/height independently.
@@ -3141,27 +3152,38 @@
     const stage = $('#decorate-stage');
     const stageW = Math.max(1, stage?.clientWidth || Math.min(PUZZLE_WIDTH, window.innerWidth - 40));
     const stageH = Math.max(1, stage?.clientHeight || 200);
-    const pad = 8;
-    const maxW = Math.min(PUZZLE_WIDTH, stageW - pad * 2, window.innerWidth - 40);
-    const maxH = Math.max(80, stageH - pad * 2);
+    const pad = DECORATE_ZONE_PAD;
+    const innerW = Math.max(1, stageW - pad.left - pad.right);
+    const innerH = Math.max(80, stageH - pad.top - pad.bottom);
+    const maxW = Math.min(PUZZLE_WIDTH, innerW, window.innerWidth - 40);
+    const maxH = innerH;
     const frame = layoutPuzzleFrame(maxW, maxH);
+    const puzzleX = pad.left + (innerW - frame.w) / 2;
+    const puzzleY = pad.top + (innerH - frame.h) / 2;
     return {
       stageW,
       stageH,
       puzzleW: frame.w,
       puzzleH: frame.h,
-      puzzleX: (stageW - frame.w) / 2,
-      puzzleY: (stageH - frame.h) / 2,
+      puzzleX,
+      puzzleY,
       scale: frame.scale,
+      overlayOffsetX: 32,
+      overlayOffsetY: 48,
     };
   }
 
   function refreshDecorateLayout(flat = state.assembledCanvas) {
     if (!flat?.width) return;
     const layout = layoutDecoratePuzzle(flat);
+    const wrap = $('#decorate-wrap');
     decorateCanvas.style.width = `${layout.puzzleW}px`;
     decorateCanvas.style.height = `${layout.puzzleH}px`;
     decorateCanvas.style.aspectRatio = `${PUZZLE_WIDTH} / ${PUZZLE_HEIGHT}`;
+    if (wrap) {
+      wrap.style.left = `${layout.puzzleX + layout.puzzleW / 2}px`;
+      wrap.style.top = `${layout.puzzleY + layout.puzzleH / 2}px`;
+    }
     state.decorateLayout = { ...layout, sourceW: PUZZLE_WIDTH, sourceH: PUZZLE_HEIGHT };
   }
 
@@ -4317,10 +4339,12 @@
     const scaleY = card.h / layout.puzzleH;
     const puzzleX = layout.puzzleX || 0;
     const puzzleY = layout.puzzleY || 0;
+    const overlayOffsetX = layout.overlayOffsetX || 0;
+    const overlayOffsetY = layout.overlayOffsetY || 0;
 
     for (const overlay of state.overlays) {
-      const relX = overlay.x - puzzleX;
-      const relY = overlay.y - puzzleY;
+      const relX = (overlay.x + overlayOffsetX) - puzzleX;
+      const relY = (overlay.y + overlayOffsetY) - puzzleY;
       const x = card.x + relX * scaleX;
       const y = card.y + relY * scaleY;
 
