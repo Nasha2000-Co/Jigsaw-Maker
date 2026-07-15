@@ -14,7 +14,7 @@ fi
 
 perl -pi -e 's/(name="app-version" content=")[^"]+(")/${1}'"$BUILD"'${2}/' "$INDEX"
 
-git add "$INDEX"
+git add "$INDEX" assets/favicon.png scripts/deploy.sh
 if git diff --cached --quiet; then
   echo "Nothing to commit."
   exit 0

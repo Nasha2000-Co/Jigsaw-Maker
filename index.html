@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151538">
+  <meta name="app-version" content="202607151614">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
   <!-- Google tag (gtag.js) — anonymous usage metrics only -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EJ22395JR7"></script>
@@ -197,17 +197,18 @@
 
     html:has(#screen-decorate.active),
     body:has(#screen-decorate.active) {
-      overflow: auto;
-      height: auto;
+      overflow: hidden;
+      height: 100%;
       min-height: 100%;
     }
 
     .app:has(#screen-decorate.active) {
-      height: auto;
+      height: 100dvh;
       min-height: 100dvh;
       overflow-x: hidden;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
     }
 
     .app:has(#screen-decorate.active) main {
@@ -281,6 +282,12 @@
     #screen-decorate .tool-btn.sticker-btn {
       font-family: var(--sans);
       font-size: 22px;
+      line-height: 1;
+      overflow: hidden;
+    }
+
+    #screen-decorate .tool-btn.sticker-btn span {
+      display: block;
       line-height: 1;
     }
 
@@ -382,8 +389,7 @@
 
     #screen-play #board-canvas {
       max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+      /* Size is set in JS to fit board-wrap — avoid max-height/object-fit squashing snap coords */
     }
 
     #screen-play .play-bottom {
@@ -877,30 +883,38 @@
       background: rgba(255,255,255,0.85);
       backdrop-filter: blur(8px);
       font-family: var(--serif);
-      font-size: 18px;
+      font-size: 14px;
+      line-height: 1.1;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: transform 0.15s;
+      padding: 0;
     }
 
     .tool-btn:active { transform: scale(0.94); }
+
     .tool-btn.sticker-btn {
       font-family: var(--sans);
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 400;
       line-height: 1;
-      padding: 0;
-      text-align: center;
     }
 
     .tool-btn.style-btn {
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.1;
+      padding: 0 4px;
+      text-align: center;
+    }
 
     .tool-btn-stack {
       display: block;
-      font-size: 10px;
-      line-height: 1.15;
+      font-size: 14px;
+      line-height: 1.1;
       letter-spacing: 0.01em;
     }
 
@@ -1302,14 +1316,6 @@
       pointer-events: none;
     }
 
-    .color-input-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
     .font-btn {
       font-family: var(--sans);
       font-size: 12px;
@@ -1485,6 +1491,10 @@
     }
 
     body.decorate-sheet-open {
+      overflow: hidden;
+    }
+
+    body.decorate-sheet-open .app:has(#screen-decorate.active) {
       overflow: hidden;
     }
 
@@ -1717,7 +1727,7 @@
         </div>
         <div class="tool-row">
           <button class="tool-btn" id="btn-text" title="Add text">Aa</button>
-          <button class="tool-btn sticker-btn" id="btn-stickers" title="Stickers" aria-label="Stickers">🙂</button>
+          <button class="tool-btn sticker-btn" id="btn-stickers" title="Stickers" aria-label="Stickers"><span aria-hidden="true">🙂</span></button>
           <button class="tool-btn style-btn" id="btn-style" title="Background and stroke colors">
             <span class="tool-btn-stack">Bg &amp;<br>Stroke</span>
           </button>
@@ -2308,7 +2318,7 @@
         state.exportBgColor = state.photoBgColor;
       }
       applyExportBgPreview();
-      requestAnimationFrame(() => resetDecorateScroll());
+      requestAnimationFrame(() => lockDecorateScrollTop());
     } else {
       closeDecorateSheets();
       restoreAppBg();
@@ -2868,14 +2878,36 @@
   }
 
   function getPlayBoardScale() {
-    const maxW = window.innerWidth - 32;
-    let maxH = Math.max(120, window.innerHeight - getPlayChromeHeight());
-    const isComplete = $('#screen-play')?.classList.contains('play-complete');
     const boardWrap = document.querySelector('#screen-play .board-wrap');
-    if (boardWrap && boardWrap.clientHeight > 60 && !isComplete) {
-      maxH = Math.min(maxH, boardWrap.clientHeight);
+    const isComplete = $('#screen-play')?.classList.contains('play-complete');
+    const maxW = Math.min(
+      PUZZLE_WIDTH,
+      window.innerWidth - 32,
+      Math.max(120, (boardWrap?.clientWidth || window.innerWidth - 32) - 4)
+    );
+    let maxH;
+    if (boardWrap && boardWrap.clientHeight > 48 && !isComplete) {
+      maxH = boardWrap.clientHeight - 6;
+    } else {
+      maxH = Math.max(120, window.innerHeight - getPlayChromeHeight());
     }
     return layoutPuzzleFrame(maxW, maxH).scale;
+  }
+
+  function ensureBoardFitsWrap() {
+    const boardWrap = document.querySelector('#screen-play .board-wrap');
+    if (!boardWrap || state.screen !== 'play' || !state.pieces.length) return false;
+    const rect = boardCanvas.getBoundingClientRect();
+    const wrapW = boardWrap.clientWidth;
+    const wrapH = boardWrap.clientHeight;
+    if (wrapW < 40 || wrapH < 40) return false;
+    if (rect.width <= wrapW + 1 && rect.height <= wrapH + 1) return false;
+    const scale = layoutPuzzleFrame(
+      Math.min(PUZZLE_WIDTH, wrapW - 4),
+      wrapH - 6
+    ).scale;
+    applyPlayBoardScale(scale);
+    return true;
   }
 
   function applyPlayBoardScale(scale) {
@@ -2911,12 +2943,18 @@
     });
   }
 
+  function refitPlayBoard() {
+    if (state.screen !== 'play' || !state.pieces.length) return;
+    applyPlayBoardScale(getPlayBoardScale());
+    resizeCanvases();
+    if (ensureBoardFitsWrap()) resizeCanvases();
+    drawBoard();
+  }
+
   function syncPlayLayout() {
     if (state.screen !== 'play' || !state.pieces.length) return;
     if (getTrayUnlockedCount()) repairTrayPieces();
-    applyPlayBoardScale(getPlayBoardScale());
-    resizeCanvases();
-    drawBoard();
+    refitPlayBoard();
     if (getTrayUnlockedCount()) drawTray();
   }
 
@@ -3024,6 +3062,7 @@
     updateTrayVisibility();
     updateTrayCount();
     requestAnimationFrame(() => syncPlayLayout());
+    requestAnimationFrame(() => requestAnimationFrame(() => syncPlayLayout()));
   }
 
   function getTrayPieceDisplaySize(piece) {
@@ -3116,23 +3155,25 @@
 
     let pos = tryRandom() || tryScan();
     let expandAttempts = 0;
-    while (!pos && expandTray && expandAttempts < 8) {
+    while (!pos && expandTray && expandAttempts < 12) {
       expandAttempts += 1;
       if (state.trayW < maxTrayW) {
         state.trayW = Math.min(maxTrayW, state.trayW + Math.ceil(Math.max(dw, dh) * 0.45));
-        pos = tryRandom() || tryScan();
       } else {
-        break;
+        state.trayH += Math.ceil(Math.max(dw, dh) * 0.4);
       }
+      pos = tryRandom() || tryScan();
     }
 
     if (!pos) {
-      for (let y = pad; y <= state.trayH - dh - pad; y += 4) {
-        for (let x = pad; x <= state.trayW - dw - pad; x += 4) {
-          if (fits(x, y)) return { x, y };
-        }
+      let y = pad;
+      for (const o of occupied) {
+        y = Math.max(y, o.y + o.h + gap);
       }
-      return { x: pad, y: pad };
+      if (y + dh > state.trayH - pad) {
+        state.trayH = y + dh + pad;
+      }
+      return { x: pad, y: Math.min(y, Math.max(pad, state.trayH - dh - pad)) };
     }
 
     return pos;
@@ -3158,13 +3199,13 @@
     applyTraySizeForCount(unlocked.length);
 
     const occupied = getTrayOccupiedRects(piece);
-    const pos = findTrayPlacement(piece, occupied, { expandTray: false });
+    const pos = findTrayPlacement(piece, occupied, { expandTray: true });
     piece.trayX = pos.x;
     piece.trayY = pos.y;
 
     repairTrayPieces(unlocked);
     updateTrayCount();
-    requestAnimationFrame(() => syncPlayLayout());
+    syncPlayLayout();
   }
 
   function spreadTrayPieces(unlocked, { shuffle = false } = {}) {
@@ -3314,6 +3355,7 @@
   }
 
   function drawTray() {
+    const trayBefore = { w: state.trayW, h: state.trayH };
     repairTrayPieces();
     resizeTrayCanvas();
     const ctx = trayCanvas.getContext('2d');
@@ -3331,6 +3373,10 @@
       p._trayDw = dw;
       p._trayDh = dh;
     });
+
+    if (Math.abs(state.trayH - trayBefore.h) > 2 || Math.abs(state.trayW - trayBefore.w) > 2) {
+      requestAnimationFrame(() => refitPlayBoard());
+    }
   }
 
   function updateTrayVisibility() {
@@ -3397,7 +3443,30 @@
   }
 
   function getSnapThreshold() {
-    return Math.max(36, Math.min(state.cellW, state.cellH) * 0.62);
+    const cell = Math.min(state.cellW, state.cellH);
+    return Math.max(40, cell * 0.72);
+  }
+
+  function boardClientToLogical(clientX, clientY) {
+    const rect = boardCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return { x: 0, y: 0 };
+    return {
+      x: (clientX - rect.left) * (state.boardW / rect.width),
+      y: (clientY - rect.top) * (state.boardH / rect.height),
+    };
+  }
+
+  function getFloatingPieceSize(piece, overBoard) {
+    const pw = piece.canvas.width;
+    const ph = piece.canvas.height;
+    if (!overBoard) {
+      const trayScale = Math.min(72 / pw, 72 / ph);
+      return { dw: pw * trayScale, dh: ph * trayScale };
+    }
+    const rect = boardCanvas.getBoundingClientRect();
+    const scaleX = rect.width / HeadbreakerGen.PUZZLE_W;
+    const scaleY = rect.height / HeadbreakerGen.PUZZLE_H;
+    return { dw: pw * scaleX, dh: ph * scaleY };
   }
 
   let snapAudioCtx = null;
@@ -3449,11 +3518,10 @@
   function startDrag(piece, clientX, clientY, source) {
     dragState = { piece, source, startX: clientX, startY: clientY };
 
-    const pw = piece.canvas.width;
-    const ph = piece.canvas.height;
-    const trayScale = Math.min(72 / pw, 72 / ph);
-    const dw = source === 'tray' ? pw * trayScale : pw;
-    const dh = source === 'tray' ? ph * trayScale : ph;
+    const boardRect = boardCanvas.getBoundingClientRect();
+    const overBoard = clientX >= boardRect.left && clientX <= boardRect.right
+      && clientY >= boardRect.top && clientY <= boardRect.bottom;
+    const { dw, dh } = getFloatingPieceSize(piece, overBoard);
 
     floatingPiece.src = composePieceWithStroke(piece).toDataURL();
     floatingPiece.style.width = dw + 'px';
@@ -3492,13 +3560,7 @@
     const overBoard = clientX >= boardRect.left && clientX <= boardRect.right &&
                       clientY >= boardRect.top && clientY <= boardRect.bottom;
 
-    const pw = piece.canvas.width;
-    const ph = piece.canvas.height;
-    const trayScale = Math.min(72 / pw, 72 / ph);
-    const boardScale = state.boardW / HeadbreakerGen.PUZZLE_W;
-    const scale = overBoard ? boardScale : trayScale;
-    const dw = pw * scale;
-    const dh = ph * scale;
+    const { dw, dh } = getFloatingPieceSize(piece, overBoard);
 
     floatingPiece.style.width = dw + 'px';
     floatingPiece.style.height = dh + 'px';
@@ -3515,11 +3577,7 @@
     const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
     const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
 
-    const boardRect = boardCanvas.getBoundingClientRect();
-    const scaleX = state.boardW / boardRect.width;
-    const scaleY = state.boardH / boardRect.height;
-    const bx = (clientX - boardRect.left) * scaleX;
-    const by = (clientY - boardRect.top) * scaleY;
+    const { x: bx, y: by } = boardClientToLogical(clientX, clientY);
 
     const target = getPieceSnapTarget(piece);
     const dist = Math.hypot(bx - target.x, by - target.y);
@@ -3670,26 +3728,43 @@
     state.decorateLayout = { ...layout, sourceW: PUZZLE_WIDTH, sourceH: PUZZLE_HEIGHT };
   }
 
-  function getPuzzleOverlayPoint(offsetX = 0, offsetY = 0) {
+  function getDecorateScrollRoot() {
+    return document.querySelector('.app');
+  }
+
+  function resetDecorateScroll() {
+    const root = getDecorateScrollRoot();
+    if (root) root.scrollTop = 0;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
+
+  function lockDecorateScrollTop() {
+    resetDecorateScroll();
+    requestAnimationFrame(resetDecorateScroll);
+    requestAnimationFrame(() => requestAnimationFrame(resetDecorateScroll));
+    setTimeout(resetDecorateScroll, 60);
+    setTimeout(resetDecorateScroll, 180);
+  }
+
+  function getPuzzleOverlayPoint(offsetX = 0, offsetY = 0, { anchor = 'upper-center' } = {}) {
     const layout = state.decorateLayout;
     if (!layout) {
       const layer = $('#overlay-layer');
       return {
         x: (layer?.clientWidth || 200) / 2 + offsetX,
-        y: (layer?.clientHeight || 200) / 2 + offsetY,
+        y: (layer?.clientHeight || 200) * 0.3 + offsetY,
       };
     }
+    const x = layout.puzzleX + layout.puzzleW / 2 + layout.overlayOffsetX + offsetX;
+    const yBase = anchor === 'center'
+      ? layout.puzzleY + layout.puzzleH / 2
+      : layout.puzzleY + layout.puzzleH * 0.3;
     return {
-      x: layout.puzzleX + layout.puzzleW / 2 + layout.overlayOffsetX + offsetX,
-      y: layout.puzzleY + layout.puzzleH / 2 + layout.overlayOffsetY + offsetY,
+      x,
+      y: yBase + layout.overlayOffsetY + offsetY,
     };
-  }
-
-  function resetDecorateScroll() {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    document.querySelector('.app')?.scrollTo(0, 0);
   }
 
   function syncTextSheetKeyboardInset() {
@@ -3734,7 +3809,7 @@
     }
     invalidateExportWarm();
     scheduleExportWarm();
-    requestAnimationFrame(() => resetDecorateScroll());
+    requestAnimationFrame(() => lockDecorateScrollTop());
   }
 
   $('#btn-save-play').addEventListener('click', () => {
@@ -4211,15 +4286,22 @@
     queueEyedropperLensUpdate(e.clientX, e.clientY);
   }
 
+  function onEyedropperTouchMove(e) {
+    if (!eyedropperActive || !e.touches?.length) return;
+    queueEyedropperLensUpdate(e.touches[0].clientX, e.touches[0].clientY);
+  }
+
   function bindEyedropperTracking() {
     document.addEventListener('pointermove', onEyedropperPointerMove, { passive: true });
     document.addEventListener('pointerdown', onEyedropperPointerMove, { passive: true });
+    document.addEventListener('touchmove', onEyedropperTouchMove, { passive: true });
     document.addEventListener('pointerup', onEyedropperPointerUp, true);
   }
 
   function unbindEyedropperTracking() {
     document.removeEventListener('pointermove', onEyedropperPointerMove);
     document.removeEventListener('pointerdown', onEyedropperPointerMove);
+    document.removeEventListener('touchmove', onEyedropperTouchMove);
     document.removeEventListener('pointerup', onEyedropperPointerUp, true);
     if (eyedropperMoveRaf) {
       cancelAnimationFrame(eyedropperMoveRaf);
@@ -4524,7 +4606,7 @@
     const open = isDecorateSheetOpen();
     if (!open) sheetBackdrop?.classList.remove('open');
     document.body.classList.toggle('decorate-sheet-open', open);
-    if (open) resetDecorateScroll();
+    if (open) lockDecorateScrollTop();
   }
 
   function closeDecorateSheets() {
@@ -4540,7 +4622,7 @@
       editingTextOverlay = null;
     }
     syncDecorateSheetUi();
-    if (hadTextSheet) requestAnimationFrame(() => resetDecorateScroll());
+    if (hadTextSheet) lockDecorateScrollTop();
   }
 
   function hideDecorateSheetsForEyedropper() {
@@ -4553,7 +4635,7 @@
 
   function openDecorateSheet(name) {
     closeDecorateSheets();
-    resetDecorateScroll();
+    lockDecorateScrollTop();
     const sheet = decorateSheets[name];
     if (!sheet) return;
     sheet.classList.add('open');
@@ -4651,7 +4733,16 @@
   function showTextStyleBar(overlay) {
     if (!overlay || overlay.type !== 'text') {
       closeTextStyleSheet();
+      return;
     }
+    if (decorateSheets.text?.classList.contains('open')) return;
+    syncTextStyleToolbarUI(inlineTextStyle, {
+      color: overlay.color,
+      bgColor: overlay.bgColor,
+      fontKey: overlay.fontKey,
+    });
+    if (decorateSheets.textStyle?.classList.contains('open')) return;
+    openDecorateSheet('textStyle');
   }
 
   const stickerGrid = $('#sticker-grid');
@@ -4727,7 +4818,7 @@
   function addSticker(name) {
     closeSheet();
     refreshDecorateLayout();
-    const center = getPuzzleOverlayPoint(-30, -30);
+    const center = getPuzzleOverlayPoint(-20, -8);
     const el = document.createElement('div');
     el.className = 'overlay-item';
     el.dataset.id = overlayId++;
@@ -4745,15 +4836,15 @@
     layer.appendChild(el);
     const overlay = { el, type: 'sticker', name, x: center.x, y: center.y, w: 60, h: 60, rotation: 0 };
     state.overlays.push(overlay);
-    selectOverlay(overlay);
     bindOverlayEvents(el, overlay);
     invalidateExportWarm();
     scheduleExportWarm();
+    lockDecorateScrollTop();
   }
 
   function addText(text, style = textStyleDraft) {
     refreshDecorateLayout();
-    const center = getPuzzleOverlayPoint(-40, -12);
+    const center = getPuzzleOverlayPoint(0, 0);
     const layer = $('#overlay-layer');
     const el = document.createElement('div');
     el.className = 'overlay-item text-item';
@@ -4774,10 +4865,10 @@
     };
     applyTextOverlayStyle(overlay);
     state.overlays.push(overlay);
-    selectOverlay(overlay);
     bindOverlayEvents(el, overlay);
     invalidateExportWarm();
     scheduleExportWarm();
+    lockDecorateScrollTop();
   }
 
   function openTextModal(overlay = null) {
@@ -4988,7 +5079,7 @@
       syncDecorateSheetUi();
     }
     editingTextOverlay = null;
-    requestAnimationFrame(() => resetDecorateScroll());
+    lockDecorateScrollTop();
   }
 
   $('#btn-text').addEventListener('click', () => {
@@ -5027,9 +5118,8 @@
         scheduleExportWarm();
       } else {
         addText(val, style);
-        deselectAllOverlays();
       }
-      resetDecorateScroll();
+      lockDecorateScrollTop();
     });
   });
 
@@ -5046,6 +5136,15 @@
     window._textSheetViewportBound = true;
     window.visualViewport.addEventListener('resize', syncTextSheetKeyboardInset);
     window.visualViewport.addEventListener('scroll', syncTextSheetKeyboardInset);
+  }
+
+  if (window.visualViewport && !window._decorateViewportBound) {
+    window._decorateViewportBound = true;
+    window.visualViewport.addEventListener('resize', () => {
+      if (state.screen === 'decorate' && !isDecorateSheetOpen()) {
+        lockDecorateScrollTop();
+      }
+    });
   }
 
   $('#btn-back-decorate').addEventListener('click', () => {
@@ -5115,7 +5214,39 @@
     return parseFloat(ls) || fontSize * 0.28;
   }
 
-  /** Map live decorate-screen layout → 1080×1920 export (WYSIWYG). */
+  /** Center title + puzzle card + credit on 9:16 story canvas (1080×1920). */
+  function getCenteredExportMetrics(exportW, exportH) {
+    const sx = exportW / EXPORT_SIZE.W;
+    const sy = exportH / EXPORT_SIZE.H;
+
+    const cardW = Math.min(820 * sx, exportW - 120 * sx);
+    const cardH = Math.round(cardW * (4 / 3));
+    const titleFontSize = 54 * sy;
+    const titleLetterSpacing = titleFontSize * 0.28;
+    const creditFontSize = 34 * sy;
+
+    const gapTitleCard = 44 * sy;
+    const gapCardCredit = 52 * sy;
+    const titleLine = titleFontSize * 1.15;
+    const creditLine = creditFontSize * 1.15;
+    const blockH = titleLine + gapTitleCard + cardH + gapCardCredit + creditLine;
+    const blockTop = (exportH - blockH) / 2;
+
+    return {
+      titleY: blockTop + titleLine / 2,
+      titleFontSize,
+      titleLetterSpacing,
+      cardX: Math.round((exportW - cardW) / 2),
+      cardY: Math.round(blockTop + titleLine + gapTitleCard),
+      cardW: Math.round(cardW),
+      cardH: Math.round(cardH),
+      cardRadius: Math.round(14 * (cardW / PUZZLE_WIDTH)),
+      creditY: blockTop + titleLine + gapTitleCard + cardH + gapCardCredit + creditLine / 2,
+      creditFontSize,
+    };
+  }
+
+  /** @deprecated Screen-mapped layout — top-aligns on story export when page is scrolled to top. */
   function measureExportLayout(exportW, exportH) {
     const app = document.querySelector('.app');
     const h1 = document.querySelector('header h1');
@@ -5349,16 +5480,14 @@
       }
     }
 
-    const metrics = measureExportLayout(W, H);
-    const card = metrics
-      ? {
-          x: Math.round(metrics.cardX),
-          y: Math.round(metrics.cardY),
-          w: Math.round(metrics.cardW),
-          h: Math.round(metrics.cardH),
-          radius: Math.round(metrics.cardRadius),
-        }
-      : getExportCardRect(W, H);
+    const metrics = getCenteredExportMetrics(W, H);
+    const card = {
+      x: metrics.cardX,
+      y: metrics.cardY,
+      w: metrics.cardW,
+      h: metrics.cardH,
+      radius: metrics.cardRadius,
+    };
 
     drawExportTitle(ctx, W, metrics);
     drawExportCardShadow(ctx, card);
@@ -5416,7 +5545,8 @@
   }
 
   async function requireExportBlob() {
-    const blob = await warmExportBlob();
+    invalidateExportWarm();
+    const blob = await getShareBlob();
     if (!blob) throw new Error('Could not create image');
     return blob;
   }
@@ -5548,6 +5678,42 @@
 
   if (new URLSearchParams(location.search).has('automatedTest')) {
     window.__jmTest = {
+      measureSnapAlignment(gridKey = state.gridKey) {
+        state.gridKey = gridKey;
+        $$('.grid-pill').forEach((el) => {
+          el.classList.toggle('active', el.dataset.grid === gridKey);
+        });
+        initPuzzle();
+        applyPlayBoardScale(getPlayBoardScale());
+        resizeCanvases();
+        const { rows, cols, cellW, cellH, pieces } = state;
+        const slotErrors = pieces.map((p) => ({
+          row: p.row,
+          col: p.col,
+          dx: p.drawX + p.padLeft - p.col * cellW,
+          dy: p.drawY + p.padTop - p.row * cellH,
+        }));
+        const maxErr = slotErrors.reduce(
+          (acc, e) => ({
+            dx: Math.max(acc.dx, Math.abs(e.dx)),
+            dy: Math.max(acc.dy, Math.abs(e.dy)),
+          }),
+          { dx: 0, dy: 0 }
+        );
+        pieces.forEach((p) => { p.locked = true; });
+        drawBoard();
+        const ctx = boardCanvas.getContext('2d');
+        const holes = [];
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const cx = Math.round((col + 0.5) * cellW);
+            const cy = Math.round((row + 0.5) * cellH);
+            const d = ctx.getImageData(cx, cy, 1, 1).data;
+            if (d[3] < 180) holes.push({ row, col, alpha: d[3] });
+          }
+        }
+        return { gridKey, rows, cols, cellW, cellH, maxErr, slotErrors, holes };
+      },
       completePuzzleAndDecorate() {
         state.pieces.forEach((p) => { p.locked = true; });
         updateSaveButton();
