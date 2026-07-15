@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151733">
+  <meta name="app-version" content="202607151737">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -3440,6 +3440,8 @@
     ctx.restore();
     strokeBoardFrame(ctx, state.boardW, state.boardH, r);
   }
+
+  function composePieceWithStroke(piece) {
     if (piece._composed) return piece._composed;
     const dc = document.createElement('canvas');
     dc.width = piece.canvas.width;
