@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151731">
+  <meta name="app-version" content="202607151733">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -3351,6 +3351,20 @@
     resizeTrayCanvas();
   }
 
+  function strokeBoardFrame(ctx, w, h, radius = 14) {
+    const lineW = HeadbreakerGen.getStrokeWidth();
+    const inset = lineW / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(inset, inset, w - lineW, h - lineW, Math.max(0, radius - inset));
+    ctx.strokeStyle = hexToStrokeRgba(state.strokeColor);
+    ctx.lineWidth = lineW;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawBoard() {
     const ctx = boardCanvas.getContext('2d');
     const { rows, cols, cellW, cellH } = state;
@@ -3424,9 +3438,8 @@
     }
 
     ctx.restore();
+    strokeBoardFrame(ctx, state.boardW, state.boardH, r);
   }
-
-  function composePieceWithStroke(piece) {
     if (piece._composed) return piece._composed;
     const dc = document.createElement('canvas');
     dc.width = piece.canvas.width;
@@ -3769,6 +3782,7 @@
     }
 
     ctx.restore();
+    strokeBoardFrame(ctx, nativeW, nativeH, r);
     state.assembledCanvas = canvas;
     return canvas;
   }
