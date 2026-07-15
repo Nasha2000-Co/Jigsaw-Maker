@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151519">
+  <meta name="app-version" content="202607151523">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
@@ -1211,81 +1211,48 @@
       z-index: -1;
     }
 
-    .eyedropper-bar {
+    .eyedropper-lens {
       position: fixed;
+      left: 0;
       top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(430px, 100%);
-      z-index: 350;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      padding-top: max(10px, env(safe-area-inset-top));
-      background: rgba(26, 26, 26, 0.94);
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+      width: 0;
+      height: 0;
+      z-index: 400;
+      pointer-events: none;
     }
 
-    .eyedropper-bar[hidden] { display: none !important; }
+    .eyedropper-lens[hidden] { display: none !important; }
 
-    .eyedropper-bar-cancel {
-      flex-shrink: 0;
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 500;
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1.5px solid rgba(255, 255, 255, 0.35);
-      background: transparent;
-      color: #fff;
-      cursor: pointer;
+    .eyedropper-lens-preview {
+      position: absolute;
+      left: -30px;
+      bottom: 18px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2.5px solid #fff;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+      background: #ccc;
     }
 
-    .eyedropper-bar-center {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .eyedropper-bar-icon {
+    .eyedropper-lens-target {
+      position: absolute;
+      left: -14px;
+      top: -14px;
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, 0.35);
-      background: rgba(255, 255, 255, 0.12);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--black);
+      border: 2.5px solid #fff;
+      box-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+      background: rgba(255, 255, 255, 0.06);
     }
 
-    .eyedropper-bar-icon svg {
-      width: 15px;
-      height: 15px;
-      fill: none;
-      stroke: #fff;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+    body.eyedropper-active {
+      cursor: none;
     }
 
-    .eyedropper-bar-text {
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 500;
-      line-height: 1.35;
-      text-align: left;
-    }
-
-    body.eyedropper-active .decorate-stage {
-      outline: 2px dashed rgba(26, 26, 26, 0.35);
-      outline-offset: -2px;
+    body.eyedropper-active .decorate-stage.eyedropper-mode {
+      cursor: none;
     }
 
     .color-input-hidden {
@@ -1333,12 +1300,10 @@
     }
 
     .decorate-canvas-wrap.eyedropper-mode {
-      cursor: crosshair;
       pointer-events: auto;
     }
 
     .decorate-stage.eyedropper-mode {
-      cursor: crosshair;
       touch-action: none;
     }
 
@@ -1350,27 +1315,12 @@
       pointer-events: none;
     }
 
-    .eyedropper-hint {
+    .color-input-hidden {
       position: absolute;
-      inset: 0;
-      z-index: 30;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 14px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
       pointer-events: none;
-    }
-
-    .eyedropper-hint[hidden] { display: none !important; }
-
-    .eyedropper-hint span {
-      font-family: var(--sans);
-      font-size: 12px;
-      font-weight: 500;
-      background: rgba(26, 26, 26, 0.82);
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 999px;
     }
 
     .font-btn {
@@ -1796,9 +1746,6 @@
         <div class="decorate-stage" id="decorate-stage">
           <div class="decorate-canvas-wrap" id="decorate-wrap">
             <canvas id="decorate-canvas"></canvas>
-            <div class="eyedropper-hint" id="eyedropper-hint" hidden>
-              <span>Tap photo or background to pick a color</span>
-            </div>
           </div>
           <div class="overlay-layer" id="overlay-layer"></div>
         </div>
@@ -1837,13 +1784,10 @@
     </footer>
   </div>
 
-  <!-- Eyedropper mode — fixed guide bar (stays visible while picking) -->
-  <div class="eyedropper-bar" id="eyedropper-bar" hidden>
-    <button type="button" class="eyedropper-bar-cancel" id="eyedropper-cancel">Cancel</button>
-    <div class="eyedropper-bar-center">
-      <span class="eyedropper-bar-icon" aria-hidden="true"></span>
-      <span class="eyedropper-bar-text">Pick mode — tap the puzzle or background</span>
-    </div>
+  <!-- Eyedropper lens — follows finger/mouse while picking -->
+  <div class="eyedropper-lens" id="eyedropper-lens" hidden aria-hidden="true">
+    <div class="eyedropper-lens-preview" id="eyedropper-lens-preview"></div>
+    <div class="eyedropper-lens-target"></div>
   </div>
 
   <!-- Bottom sheets — fixed overlays; never in page flow -->
@@ -4134,6 +4078,9 @@
   let eyedropperModalWasOpen = false;
   let eyedropperSheetWasOpen = null;
   let eyedropperPicking = false;
+  let eyedropperMoveRaf = null;
+  let eyedropperLastSample = { x: -9999, y: -9999 };
+  let eyedropperSuppressPick = false;
   const bgSampleState = { canvas: null, key: '' };
 
   function isTouchLikeDevice() {
@@ -4272,20 +4219,78 @@
     const el = document.elementFromPoint(clientX, clientY);
     if (!el) return true;
     return !!el.closest(
-      'header, footer, .tool-row, .btn-stack, .bottom-sheet, .sheet-backdrop, #text-modal, #eyedropper-bar, .overlay-delete-bar, .color-tool-btn, .color-swatch'
+      'header, footer, .tool-row, .btn-stack, .bottom-sheet, .sheet-backdrop, #text-modal, .overlay-delete-bar, .color-tool-btn, .color-swatch'
     );
+  }
+
+  function hideEyedropperLens() {
+    const lens = $('#eyedropper-lens');
+    if (lens) lens.hidden = true;
+    eyedropperLastSample = { x: -9999, y: -9999 };
+  }
+
+  async function updateEyedropperLens(clientX, clientY) {
+    const lens = $('#eyedropper-lens');
+    const preview = $('#eyedropper-lens-preview');
+    if (!lens || !preview) return;
+
+    lens.hidden = false;
+    lens.style.left = `${clientX}px`;
+    lens.style.top = `${clientY}px`;
+
+    const dx = Math.abs(clientX - eyedropperLastSample.x);
+    const dy = Math.abs(clientY - eyedropperLastSample.y);
+    if (dx < 2 && dy < 2) return;
+    eyedropperLastSample = { x: clientX, y: clientY };
+
+    const color = await sampleColorAtPoint(clientX, clientY);
+    if (color) preview.style.background = color;
+  }
+
+  function queueEyedropperLensUpdate(clientX, clientY) {
+    if (!eyedropperActive) return;
+    if (eyedropperMoveRaf) cancelAnimationFrame(eyedropperMoveRaf);
+    eyedropperMoveRaf = requestAnimationFrame(() => {
+      eyedropperMoveRaf = null;
+      updateEyedropperLens(clientX, clientY);
+    });
+  }
+
+  function onEyedropperPointerMove(e) {
+    if (!eyedropperActive) return;
+    queueEyedropperLensUpdate(e.clientX, e.clientY);
+  }
+
+  function bindEyedropperTracking() {
+    document.addEventListener('pointermove', onEyedropperPointerMove, { passive: true });
+    document.addEventListener('pointerdown', onEyedropperPointerMove, { passive: true });
+    document.addEventListener('pointerup', onEyedropperPointerUp, true);
+  }
+
+  function unbindEyedropperTracking() {
+    document.removeEventListener('pointermove', onEyedropperPointerMove);
+    document.removeEventListener('pointerdown', onEyedropperPointerMove);
+    document.removeEventListener('pointerup', onEyedropperPointerUp, true);
+    if (eyedropperMoveRaf) {
+      cancelAnimationFrame(eyedropperMoveRaf);
+      eyedropperMoveRaf = null;
+    }
+  }
+
+  function onEyedropperPointerUp(e) {
+    if (!eyedropperActive || eyedropperPicking) return;
+    if (e.target.closest('.color-tool-btn, .color-swatch, .bottom-sheet, .sheet-backdrop, #text-modal')) return;
+    handleEyedropperPick(e.clientX, e.clientY);
   }
 
   function endCanvasEyedropper(color) {
     const decorateWrap = $('#decorate-wrap');
     const decorateStage = $('#decorate-stage');
-    const eyedropperHint = $('#eyedropper-hint');
-    const eyedropperBar = $('#eyedropper-bar');
     decorateWrap.classList.remove('eyedropper-mode');
     decorateStage?.classList.remove('eyedropper-mode');
     document.body.classList.remove('eyedropper-active');
-    eyedropperHint.hidden = true;
-    if (eyedropperBar) eyedropperBar.hidden = true;
+    unbindEyedropperTracking();
+    hideEyedropperLens();
     eyedropperActive = false;
     eyedropperPicking = false;
 
@@ -4321,18 +4326,20 @@
     eyedropperActive = true;
     eyedropperModalWasOpen = textModal.classList.contains('open');
     if (eyedropperModalWasOpen) textModal.classList.remove('open');
-    eyedropperSheetWasOpen = null;
+    eyedropperSheetWasOpen = rememberOpenDecorateSheet();
+    if (eyedropperSheetWasOpen) closeDecorateSheets();
 
     document.body.classList.add('eyedropper-active');
     $('#decorate-wrap')?.classList.add('eyedropper-mode');
     $('#decorate-stage')?.classList.add('eyedropper-mode');
-
-    const eyedropperBar = $('#eyedropper-bar');
-    const iconEl = eyedropperBar?.querySelector('.eyedropper-bar-icon');
-    if (iconEl) iconEl.innerHTML = EYEDROPPER_ICON;
-    if (eyedropperBar) eyedropperBar.hidden = false;
-    $('#eyedropper-hint').hidden = false;
+    bindEyedropperTracking();
     activeBtn?.classList.add('active');
+
+    const stage = $('#decorate-stage');
+    if (stage) {
+      const rect = stage.getBoundingClientRect();
+      queueEyedropperLensUpdate(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }
   }
 
   async function startCanvasEyedropper(context) {
@@ -4633,13 +4640,6 @@
 
   const decorateStage = $('#decorate-stage');
 
-  decorateStage?.addEventListener('pointerup', (e) => {
-    if (!eyedropperActive) return;
-    e.preventDefault();
-    e.stopPropagation();
-    handleEyedropperPick(e.clientX, e.clientY);
-  }, true);
-
   $('#decorate-wrap').addEventListener('click', (e) => {
     if (!e.target.closest('.overlay-item')) {
       deselectAllOverlays();
@@ -4662,12 +4662,6 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && eyedropperActive) endCanvasEyedropper(null);
-  });
-
-  $('#eyedropper-cancel')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (eyedropperActive) endCanvasEyedropper(null);
   });
 
   function deselectAllOverlays() {
