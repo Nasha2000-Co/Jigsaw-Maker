@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta name="app-version" content="202607151628">
+  <meta name="app-version" content="202607151632">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jigsaw Maker</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=2">
@@ -5244,6 +5244,82 @@
     return parseFloat(ls) || fontSize * 0.28;
   }
 
+  /** Map live decorate screen → 1080×1920 export (true WYSIWYG). */
+  function buildExportLayout(exportW, exportH) {
+    resetDecorateScroll();
+    refreshDecorateLayout();
+
+    const h1 = document.querySelector('header h1');
+    const canvas = decorateCanvas;
+    if (!h1 || !canvas || state.screen !== 'decorate') {
+      return { mode: 'centered', metrics: getCenteredExportMetrics(exportW, exportH) };
+    }
+
+    const h1Rect = h1.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+
+    let compTop = h1Rect.top;
+    let compBottom = canvasRect.bottom;
+    let compLeft = canvasRect.left;
+    let compRight = canvasRect.right;
+
+    for (const overlay of state.overlays) {
+      const r = overlay.el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      compTop = Math.min(compTop, r.top);
+      compBottom = Math.max(compBottom, r.bottom);
+      compLeft = Math.min(compLeft, r.left);
+      compRight = Math.max(compRight, r.right);
+    }
+
+    const compW = Math.max(1, compRight - compLeft);
+    const compH = Math.max(1, compBottom - compTop);
+    const sx = exportW / EXPORT_SIZE.W;
+    const sy = exportH / EXPORT_SIZE.H;
+    const marginX = 56 * sx;
+    const marginY = 72 * sy;
+    const creditReserve = 88 * sy;
+    const scale = Math.min(
+      (exportW - marginX * 2) / compW,
+      (exportH - marginY * 2 - creditReserve) / compH
+    );
+    const drawnW = compW * scale;
+    const drawnH = compH * scale;
+    const offsetX = (exportW - drawnW) / 2;
+    const offsetY = (exportH - creditReserve - drawnH) / 2;
+
+    const mapX = (clientX) => offsetX + (clientX - compLeft) * scale;
+    const mapY = (clientY) => offsetY + (clientY - compTop) * scale;
+    const mapW = (w) => w * scale;
+    const mapH = (h) => h * scale;
+
+    const h1Style = getComputedStyle(h1);
+    const titleFontSize = parseFloat(h1Style.fontSize) * scale;
+    const titleLetterSpacing = readLetterSpacingPx(h1Style, parseFloat(h1Style.fontSize)) * scale;
+
+    return {
+      mode: 'wysiwyg',
+      scale,
+      mapX,
+      mapY,
+      mapW,
+      mapH,
+      titleY: mapY(h1Rect.top + h1Rect.height / 2),
+      titleCenterX: mapX(h1Rect.left + h1Rect.width / 2),
+      titleFontSize,
+      titleLetterSpacing,
+      card: {
+        x: Math.round(mapX(canvasRect.left)),
+        y: Math.round(mapY(canvasRect.top)),
+        w: Math.round(mapW(canvasRect.width)),
+        h: Math.round(mapH(canvasRect.height)),
+        radius: Math.max(8, Math.round(14 * (canvasRect.width / PUZZLE_WIDTH) * scale)),
+      },
+      creditY: offsetY + drawnH + creditReserve * 0.58,
+      creditFontSize: 34 * sy,
+    };
+  }
+
   /** Center title + puzzle card + credit on 9:16 story canvas (1080×1920). */
   function getCenteredExportMetrics(exportW, exportH) {
     const sx = exportW / EXPORT_SIZE.W;
@@ -5339,6 +5415,7 @@
     const fontSize = metrics?.titleFontSize ?? 54;
     const letterSpacing = metrics?.titleLetterSpacing ?? fontSize * 0.28;
     const y = metrics?.titleY ?? 78;
+    const centerX = metrics?.titleCenterX ?? exportW / 2;
 
     ctx.save();
     ctx.font = `500 ${fontSize}px "Instrument Serif", Georgia, serif`;
@@ -5355,7 +5432,7 @@
       if (i < chars.length - 1) totalW += letterSpacing;
     }
 
-    let x = (exportW - totalW) / 2;
+    let x = centerX - totalW / 2;
     ctx.textAlign = 'left';
     for (const ch of chars) {
       ctx.fillText(ch, x, y);
@@ -5423,25 +5500,54 @@
     return null;
   }
 
-  function drawExportOverlays(ctx, card, layout) {
-    if (!layout?.puzzleW || !layout?.puzzleH) return;
-    const scaleX = card.w / layout.puzzleW;
-    const scaleY = card.h / layout.puzzleH;
-    const puzzleX = layout.puzzleX || 0;
-    const puzzleY = layout.puzzleY || 0;
-    const overlayOffsetX = layout.overlayOffsetX || 0;
-    const overlayOffsetY = layout.overlayOffsetY || 0;
+  function drawExportOverlays(ctx, exportLayout) {
+    if (!exportLayout) return;
+
+    if (exportLayout.mode === 'centered') {
+      const layout = state.decorateLayout;
+      const metrics = exportLayout.metrics;
+      if (!layout?.puzzleW || !layout?.puzzleH || !metrics) return;
+      const card = {
+        x: metrics.cardX,
+        y: metrics.cardY,
+        w: metrics.cardW,
+        h: metrics.cardH,
+      };
+      const scaleX = card.w / layout.puzzleW;
+      const scaleY = card.h / layout.puzzleH;
+      const puzzleX = layout.puzzleX || 0;
+      const puzzleY = layout.puzzleY || 0;
+      const overlayOffsetX = layout.overlayOffsetX || 0;
+      const overlayOffsetY = layout.overlayOffsetY || 0;
+
+      for (const overlay of state.overlays) {
+        const relX = (overlay.x + overlayOffsetX) - puzzleX;
+        const relY = (overlay.y + overlayOffsetY) - puzzleY;
+        const x = card.x + relX * scaleX;
+        const y = card.y + relY * scaleY;
+        ctx.save();
+        if (overlay.type === 'sticker') {
+          const img = getStickerDrawImage(overlay);
+          if (img) ctx.drawImage(img, x, y, overlay.w * scaleX, overlay.h * scaleY);
+        }
+        ctx.restore();
+      }
+      return;
+    }
 
     for (const overlay of state.overlays) {
-      const relX = (overlay.x + overlayOffsetX) - puzzleX;
-      const relY = (overlay.y + overlayOffsetY) - puzzleY;
-      const x = card.x + relX * scaleX;
-      const y = card.y + relY * scaleY;
+      const r = overlay.el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+
+      const x = exportLayout.mapX(r.left);
+      const y = exportLayout.mapY(r.top);
+      const w = exportLayout.mapW(r.width);
+      const h = exportLayout.mapH(r.height);
 
       ctx.save();
       if (overlay.rotation) {
-        const cx = x + (overlay.w * scaleX) / 2;
-        const cy = y + (overlay.h * scaleY) / 2;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
         ctx.translate(cx, cy);
         ctx.rotate((overlay.rotation * Math.PI) / 180);
         ctx.translate(-cx, -cy);
@@ -5449,19 +5555,17 @@
 
       if (overlay.type === 'sticker') {
         const img = getStickerDrawImage(overlay);
-        if (img) {
-          ctx.drawImage(img, x, y, overlay.w * scaleX, overlay.h * scaleY);
-        }
+        if (img) ctx.drawImage(img, x, y, w, h);
       } else {
-        const fs = (overlay.fontSize || 24) * scaleX;
+        const fs = (overlay.fontSize || 24) * exportLayout.scale;
         const fontFamily = getFontFamily(overlay.fontKey);
         const color = overlay.color || DEFAULT_TEXT_STYLE.color;
         const padX = fs * 0.42;
         const padY = fs * 0.28;
         ctx.font = `${fs}px ${fontFamily}`;
         const textW = ctx.measureText(overlay.text).width;
-        const boxW = textW + padX * 2;
-        const boxH = fs * 1.2 + padY * 2;
+        const boxW = Math.max(w, textW + padX * 2);
+        const boxH = Math.max(h, fs * 1.2 + padY * 2);
 
         const bgColor = normalizeBgColor(overlay.bgColor);
         if (bgColor) {
@@ -5482,8 +5586,10 @@
   async function renderStoryExport() {
     await document.fonts.ready;
     const assembled = state.assembledCanvas || flattenPuzzle();
-    refreshDecorateLayout();
-    const layout = state.decorateLayout;
+
+    deselectAllOverlays();
+    closeDecorateSheets();
+    resetDecorateScroll();
 
     await ensureStickerImagesReady();
 
@@ -5510,19 +5616,24 @@
       }
     }
 
-    const metrics = getCenteredExportMetrics(W, H);
-    const card = {
-      x: metrics.cardX,
-      y: metrics.cardY,
-      w: metrics.cardW,
-      h: metrics.cardH,
-      radius: metrics.cardRadius,
-    };
+    const exportLayout = buildExportLayout(W, H);
+    const metrics = exportLayout.mode === 'wysiwyg'
+      ? exportLayout
+      : exportLayout.metrics;
+    const card = exportLayout.mode === 'wysiwyg'
+      ? exportLayout.card
+      : {
+          x: metrics.cardX,
+          y: metrics.cardY,
+          w: metrics.cardW,
+          h: metrics.cardH,
+          radius: metrics.cardRadius,
+        };
 
     drawExportTitle(ctx, W, metrics);
     drawExportCardShadow(ctx, card);
     drawExportPuzzleCard(ctx, assembled, card);
-    drawExportOverlays(ctx, card, layout);
+    drawExportOverlays(ctx, exportLayout);
     drawExportCredit(ctx, W, metrics);
 
     return canvas;
